@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* ✅白チラ防止：ページ全体を黒固定 */
+html,
+body {
+  background: #000 !important;
+  color: #fff;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* もしどこかが var(--background) を参照しても黒になるように保険 */
+:root {
+  --background: #000;
+  --foreground: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000;
+    --foreground: #fff;
+  }
+}
