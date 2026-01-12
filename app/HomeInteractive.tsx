@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import HomeClient from "./HomeClient";
 import HeartsLayer from "./components/HeartsLayer";
 
@@ -309,7 +309,7 @@ async function sbInsertMessage(text: string): Promise<void> {
   if (!res.ok) throw new Error(`Supabase insert failed: ${res.status}`);
 }
 
-function stopAll(e: React.SyntheticEvent) {
+function stopAll(e: SyntheticEvent) {
   e.preventDefault();
   e.stopPropagation();
 }
@@ -557,7 +557,6 @@ export default function HomeInteractive({
 
     const onOk = () => {
       setLogoLoaded(true);
-
       if (forceLogo) return;
 
       window.setTimeout(() => {
@@ -727,15 +726,43 @@ export default function HomeInteractive({
               82%  { opacity: 1; transform: translateY(0px) scale(1.0); }
               100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
             }
+
+            /* ✅ ホバー統一（menu/hamburgerと同系） */
+            .uiBtn{
+              transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
+              will-change: transform, box-shadow;
+              -webkit-tap-highlight-color: transparent;
+              user-select: none;
+            }
+            .uiBtn:hover{
+              background: rgba(255,255,255,0.08) !important;
+              border-color: rgba(255,255,255,0.18) !important;
+              box-shadow:
+                0 0 0 1px rgba(255,255,255,0.18),
+                0 8px 30px rgba(255,255,255,0.12);
+              transform: translateY(-1px);
+              color: rgba(255,255,255,0.98) !important;
+            }
+            .uiBtn:active{
+              transform: translateY(0px);
+            }
+            .uiBtn:focus-visible{
+              outline: none;
+              box-shadow:
+                0 0 0 3px rgba(255,255,255,0.18),
+                0 8px 30px rgba(255,255,255,0.12);
+            }
           `}</style>
         </div>
       )}
 
       <HeartsLayer enabled={!blockTap && !uiBlocking} onTap={blockTap || uiBlocking ? () => {} : onTap} />
 
+      {/* ✅ Profile（左下）— hover統一 */}
       {showProfileButton && (
         <button
           type="button"
+          className="uiBtn"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setProfileOpen(true)}
           style={{
@@ -760,77 +787,77 @@ export default function HomeInteractive({
       )}
 
       {/* Logo overlay */}
-{showLogo && (
-  <>
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999999,
-        background: LOGO_BG,
-        display: "grid",
-        placeItems: "center",
-        pointerEvents: "all",
-        animation:
-          typeof window !== "undefined" &&
-          new URLSearchParams(window.location.search).get("logo") === "1"
-            ? "none"
-            : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
-      }}
-    >
-      <img
-        src={LOGO_SRC}
-        alt="logo"
-        style={{
-          width: "min(70vw, 420px)",
-          height: "auto",
-          display: "block",
-          willChange: "filter, opacity, transform",
-          animation:
-            typeof window !== "undefined" &&
-            new URLSearchParams(window.location.search).get("logo") === "1"
-              ? "none"
-              : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
-        }}
-      />
-    </div>
+      {showLogo && (
+        <>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 999999,
+              background: LOGO_BG,
+              display: "grid",
+              placeItems: "center",
+              pointerEvents: "all",
+              animation:
+                typeof window !== "undefined" &&
+                new URLSearchParams(window.location.search).get("logo") === "1"
+                  ? "none"
+                  : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
+            }}
+          >
+            <img
+              src={LOGO_SRC}
+              alt="logo"
+              style={{
+                width: "min(70vw, 420px)",
+                height: "auto",
+                display: "block",
+                willChange: "filter, opacity, transform",
+                animation:
+                  typeof window !== "undefined" &&
+                  new URLSearchParams(window.location.search).get("logo") === "1"
+                    ? "none"
+                    : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
+              }}
+            />
+          </div>
 
-    <style>{`
-      @keyframes logoOverlay{
-        0%{opacity:1}
-        100%{opacity:1}
-      }
+          <style>{`
+            @keyframes logoOverlay{
+              0%{opacity:1}
+              100%{opacity:1}
+            }
 
-      /* ガウス：400px → 0px → 500px */
-      @keyframes logoGaussian{
-        0%{
-          opacity: 0;
-          filter: blur(400px);
-          transform: scale(1.02);
-        }
-        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
-          opacity: 1;
-          filter: blur(0px);
-          transform: scale(1);
-        }
-        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
-          opacity: 1;
-          filter: blur(0px);
-          transform: scale(1);
-        }
-        100%{
-          opacity: 0;
-          filter: blur(500px);
-          transform: scale(1.03);
-        }
-      }
+            /* ガウス：400px → 0px → 500px */
+            @keyframes logoGaussian{
+              0%{
+                opacity: 0;
+                filter: blur(400px);
+                transform: scale(1.02);
+              }
+              ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              100%{
+                opacity: 0;
+                filter: blur(500px);
+                transform: scale(1.03);
+              }
+            }
 
-      @media (prefers-reduced-motion: reduce){
-        *{ animation:none !important; }
-      }
-    `}</style>
-  </>
-)}
+            @media (prefers-reduced-motion: reduce){
+              *{ animation:none !important; }
+            }
+          `}</style>
+        </>
+      )}
 
       {/* Secret overlay */}
       {secretSrc && (
@@ -860,7 +887,11 @@ export default function HomeInteractive({
               boxShadow: "0 30px 90px rgba(0,0,0,0.62)",
             }}
           >
-            <img src={secretSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img
+              src={secretSrc}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
           </div>
         </div>
       )}
@@ -926,6 +957,7 @@ export default function HomeInteractive({
             <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="uiBtn"
                 onClick={() => {
                   setMsgOpen(false);
                   setMsgText("");
@@ -946,6 +978,7 @@ export default function HomeInteractive({
 
               <button
                 type="button"
+                className="uiBtn"
                 disabled={!msgText.trim() || Boolean(validationError)}
                 onClick={postMessage}
                 style={{
@@ -966,7 +999,7 @@ export default function HomeInteractive({
         </div>
       )}
 
-      {/* Profile modal */}
+      {/* Profile modal（Closeは下に1か所だけ・hover統一） */}
       {profileOpen && (
         <div
           role="dialog"
@@ -1001,7 +1034,9 @@ export default function HomeInteractive({
             }}
           >
             <div style={{ letterSpacing: "0.08em" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>{nameLines[0] ?? "CanCana"}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>
+                {nameLines[0] ?? "CanCana"}
+              </div>
               {nameLines[1] && (
                 <div style={{ fontSize: 18, fontWeight: 650, lineHeight: 1.25, marginTop: 2, opacity: 0.92 }}>
                   {nameLines[1]}
@@ -1016,6 +1051,7 @@ export default function HomeInteractive({
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
               <button
                 type="button"
+                className="uiBtn"
                 onClick={() => setProfileOpen(false)}
                 style={{
                   padding: "10px 12px",
@@ -1033,6 +1069,34 @@ export default function HomeInteractive({
           </div>
         </div>
       )}
+
+      {/* ✅ uiBtn のstyleを常に効かせる（msgViewsが0でも必要なのでここにも置く） */}
+      <style>{`
+        .uiBtn{
+          transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
+          will-change: transform, box-shadow;
+          -webkit-tap-highlight-color: transparent;
+          user-select: none;
+        }
+        .uiBtn:hover{
+          background: rgba(255,255,255,0.08) !important;
+          border-color: rgba(255,255,255,0.18) !important;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.18),
+            0 8px 30px rgba(255,255,255,0.12);
+          transform: translateY(-1px);
+          color: rgba(255,255,255,0.98) !important;
+        }
+        .uiBtn:active{
+          transform: translateY(0px);
+        }
+        .uiBtn:focus-visible{
+          outline: none;
+          box-shadow:
+            0 0 0 3px rgba(255,255,255,0.18),
+            0 8px 30px rgba(255,255,255,0.12);
+        }
+      `}</style>
     </div>
   );
 }
