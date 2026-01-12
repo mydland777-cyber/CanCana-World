@@ -1,37 +1,24 @@
-// app/page.tsx
+﻿// app/page.tsx
 import fs from "fs";
 import path from "path";
 import type { Metadata } from "next";
 import HomeInteractive from "./HomeInteractive";
 
-// ✅ Home（/）のSEO（ファイル上部）
 export const metadata: Metadata = {
   title: "CanCana World",
   description:
     "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。最新情報、作品、サポート、コンタクトはこちら。",
-  alternates: {
-    canonical: "/", // ✅ canonical を明示
-  },
+  alternates: { canonical: "/" },
   openGraph: {
     title: "CanCana World",
     description: "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。",
-    url: "/", // ✅ layout側の metadataBase と合体して絶対URLになる
+    url: "/",
     siteName: "CanCana World",
-    images: [
-      {
-        url: "/og.png", // ✅ いまはロゴでOK（後で /og.png にしても良い）
-        width: 1200,
-        height: 630,
-        alt: "CanCana World",
-      },
-    ],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "CanCana World" }],
     locale: "ja_JP",
     type: "website",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
 };
 
 function listImagesInDir(absDir: string, urlPrefix: string) {
@@ -57,19 +44,29 @@ function listPrefixedInDir(absDir: string, urlPrefix: string, prefix: string) {
     .map((f) => `${urlPrefix}/${f}`);
 }
 
-export default function HomePage() {
-  // Home背景（public/home）
+export default function HomePage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const logoParam = searchParams?.logo;
+  const logo = Array.isArray(logoParam) ? logoParam[0] : logoParam;
+  const dbg = logo === "1";
+
+  const sha =
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    process.env.VERCEL_GIT_COMMIT_REF ??
+    "no-sha";
+
   const homeDir = path.join(process.cwd(), "public", "home");
   const images = listImagesInDir(homeDir, "/home");
 
-  // Secret（おすすめ：フォルダ分け）
   const secretLuckyDir = path.join(process.cwd(), "public", "secret", "lucky");
   const secretSkullDir = path.join(process.cwd(), "public", "secret", "skull");
 
   const luckyFromFolders = listImagesInDir(secretLuckyDir, "/secret/lucky");
   const skullFromFolders = listImagesInDir(secretSkullDir, "/secret/skull");
 
-  // 互換：public/secret に lucky_ / skull_ で置いてる人向け（保険）
   const secretRootDir = path.join(process.cwd(), "public", "secret");
   const luckyFromPrefix = listPrefixedInDir(secretRootDir, "/secret", "lucky_");
   const skullFromPrefix = listPrefixedInDir(secretRootDir, "/secret", "skull_");
@@ -78,10 +75,29 @@ export default function HomePage() {
   const skullImages = [...skullFromFolders, ...skullFromPrefix];
 
   return (
-    <HomeInteractive
-      images={images}
-      luckyImages={luckyImages}
-      skullImages={skullImages}
-    />
+    <>
+      {dbg && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2147483647,
+            background: "#ff0",
+            color: "#000",
+            padding: "10px 12px",
+            fontSize: 14,
+            fontWeight: 900,
+            letterSpacing: "0.06em",
+            pointerEvents: "none",
+          }}
+        >
+          SERVER DEBUG: logo=1 / sha={sha}
+        </div>
+      )}
+
+      <HomeInteractive images={images} luckyImages={luckyImages} skullImages={skullImages} />
+    </>
   );
 }
