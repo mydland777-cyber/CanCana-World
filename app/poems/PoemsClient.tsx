@@ -1,3 +1,4 @@
+// app/poems/PoemsClient.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -170,7 +171,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       setShowFront(true);
       setTextIndex(first);
 
-      // ✅ ここが核心：必ず「opacity=0の描画」を1回挟む（Home→Poemsでも安定）
+      // ✅ 必ず「opacity=0の描画」を1回挟む
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (cancelled) return;
@@ -232,6 +233,38 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       }, BG_FADE_MS);
     }, TEXT_OUT_MS);
   };
+
+  // ✅ ここが追加：textIndexが変わったら「必ず」自動タイマーを再セット（止まり対策）
+  useEffect(() => {
+    if (items.length <= 1) return;
+    if (textIndex < 0) return;
+    if (switchingRef.current) return;
+    scheduleAuto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textIndex, items.length]);
+
+  // ✅ ここが追加：タブ復帰/フォーカス復帰で再開（モバイルで止まる対策）
+  useEffect(() => {
+    const onResume = () => {
+      if (items.length <= 1) return;
+      if (textIndex < 0) return;
+      if (switchingRef.current) return;
+      scheduleAuto();
+    };
+    const onVis = () => {
+      if (document.hidden) clearAuto();
+      else onResume();
+    };
+
+    window.addEventListener("focus", onResume);
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      window.removeEventListener("focus", onResume);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, textIndex]);
 
   // アンマウント掃除
   useEffect(() => {
