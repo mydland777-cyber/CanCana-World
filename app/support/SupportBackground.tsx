@@ -31,50 +31,39 @@ export default function SupportBackground({ images, count = 18 }: Props) {
 
   const tiles = useMemo(() => {
     const rnd = mulberry32(seed);
+
     return Array.from({ length: Math.min(count, images.length * 3) }).map((_, i) => {
       const src = images[i % images.length];
 
+      // 位置・回転・サイズを「無茶苦茶」に（でも安定）
       const left = rnd() * 100;
       const top = rnd() * 100;
-      const rot = (rnd() * 2 - 1) * 18;
-      const scale = 0.9 + rnd() * 0.5;
-      const w = 28 + rnd() * 26;
-      const opacity = 0.18 + rnd() * 0.18;
+      const rot = (rnd() * 2 - 1) * 18; // -18〜18deg
+      const scale = 0.9 + rnd() * 0.5; // 0.9〜1.4
+      const w = 28 + rnd() * 26; // 28〜54 vw
+      const opacity = 0.18 + rnd() * 0.18; // 0.18〜0.36
 
       return { src, left, top, rot, scale, w, opacity, key: i };
     });
   }, [seed, images, count]);
+
+  // ✅ この背景で使う画像だけを全部プリロード（揃ってから一括表示）
+  const srcList = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const t of tiles) uniq.add(t.src);
+    return Array.from(uniq);
+  }, [tiles]);
 
   // ★ここが「後ろのぼかし」
   const BLUR_PX = 24;
   const BRIGHT = 0.85;
   const SAT = 0.9;
 
-  // ✅ まずは少数だけ先に出す（初回の体感を速くする）
-  const FAST_TILES = 8;
-
-  const fastTiles = useMemo(() => tiles.slice(0, Math.min(FAST_TILES, tiles.length)), [tiles]);
-  const slowTiles = useMemo(() => tiles.slice(Math.min(FAST_TILES, tiles.length)), [tiles]);
-
-  const fastSrcList = useMemo(() => {
-    const s = new Set<string>();
-    for (const t of fastTiles) s.add(t.src);
-    return Array.from(s);
-  }, [fastTiles]);
-
-  const slowSrcList = useMemo(() => {
-    const s = new Set<string>();
-    for (const t of slowTiles) s.add(t.src);
-    return Array.from(s);
-  }, [slowTiles]);
-
-  const [fastReady, setFastReady] = useState(false);
-  const [slowReady, setSlowReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setFastReady(false);
-    setSlowReady(false);
+    setReady(false);
 
     const preloadOne = (src: string) =>
       new Promise<void>((resolve) => {
@@ -87,37 +76,22 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         if (img.complete) done();
       });
 
-    Promise.all(fastSrcList.map(preloadOne)).then(() => {
+    Promise.all(srcList.map(preloadOne)).then(() => {
       if (cancelled) return;
 
+      // ✅ 2rAFで「完全に揃ってから」ぶわっと
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (cancelled) return;
-          setFastReady(true);
+          setReady(true);
         });
       });
-
-      const kick = () => {
-        Promise.all(slowSrcList.map(preloadOne)).then(() => {
-          if (cancelled) return;
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (cancelled) return;
-              setSlowReady(true);
-            });
-          });
-        });
-      };
-
-      const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void, opts?: any) => any);
-      if (typeof ric === "function") ric(kick, { timeout: 1200 });
-      else window.setTimeout(kick, 450);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [fastSrcList.join("|"), slowSrcList.join("|")]);
+  }, [srcList.join("|")]);
 
   return (
     <div
@@ -131,26 +105,27 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         zIndex: 0,
       }}
     >
-      {/* 敷き詰めレイヤー（先に出す） */}
+      {/* 敷き詰めレイヤー（画像は揃うまで絶対に見せない） */}
       <div
         style={{
           position: "absolute",
           inset: "-10%",
           filter: `blur(${BLUR_PX}px) brightness(${BRIGHT}) saturate(${SAT})`,
           transform: "translateZ(0)",
-          opacity: fastReady ? 1 : 0,
-          transition: "opacity 700ms ease",
-          willChange: "opacity",
+          opacity: ready ? 1 : 0,
+          transition: "opacity 1100ms ease",
+          willChange: "opacity, transform",
+          animation: ready ? "supportBgFloat 18s ease-in-out infinite" : "none",
         }}
       >
-        {fastTiles.map((t) => (
+        {tiles.map((t) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={t.key}
             src={t.src}
             alt=""
-            loading="eager"
             decoding="async"
+            loading="eager"
             style={{
               position: "absolute",
               left: `${t.left}%`,
@@ -166,44 +141,7 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         ))}
       </div>
 
-      {/* 敷き詰めレイヤー（後から足す） */}
-      {slowTiles.length > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            inset: "-10%",
-            filter: `blur(${BLUR_PX}px) brightness(${BRIGHT}) saturate(${SAT})`,
-            transform: "translateZ(0)",
-            opacity: slowReady ? 1 : 0,
-            transition: "opacity 900ms ease",
-            willChange: "opacity",
-          }}
-        >
-          {slowTiles.map((t) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={t.key}
-              src={t.src}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              style={{
-                position: "absolute",
-                left: `${t.left}%`,
-                top: `${t.top}%`,
-                width: `${t.w}vw`,
-                height: "auto",
-                transform: `translate(-50%,-50%) rotate(${t.rot}deg) scale(${t.scale})`,
-                opacity: t.opacity,
-                borderRadius: 18,
-                boxShadow: "0 30px 120px rgba(0,0,0,0.35)",
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 周辺減光 */}
+      {/* 周辺減光（固定） */}
       <div
         style={{
           position: "absolute",
@@ -213,21 +151,26 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         }}
       />
 
-      {/* 霞（ぴかぴか防止：fastReady後にふわっと） */}
+      {/* 霞（ぴかぴか防止：ready後にふわっと） */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background: "rgba(255,255,255,0.06)",
           mixBlendMode: "screen",
-          opacity: fastReady ? 0.18 : 0,
-          transition: "opacity 900ms ease",
+          opacity: ready ? 0.18 : 0,
+          transition: "opacity 1200ms ease",
         }}
       />
 
       <style>{`
+        @keyframes supportBgFloat{
+          0%   { transform: translate3d(0px, 0px, 0) scale(1.0); }
+          50%  { transform: translate3d(-10px, 8px, 0) scale(1.01); }
+          100% { transform: translate3d(0px, 0px, 0) scale(1.0); }
+        }
         @media (prefers-reduced-motion: reduce){
-          *{ transition:none !important; }
+          *{ transition:none !important; animation:none !important; }
         }
       `}</style>
     </div>
