@@ -87,9 +87,9 @@ const LOGO_SRC = "/logo.png";
 const LOGO_ONCE_KEY = "cancana_logo_once_session_v3";
 const LOGO_BG = "#000";
 
-const LOGO_IN_MS = 100;
-const LOGO_HOLD_MS = 450;
-const LOGO_OUT_MS = 100;
+const LOGO_IN_MS = 500;
+const LOGO_HOLD_MS = 1500;
+const LOGO_OUT_MS = 500;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
 // ===== Profile =====
