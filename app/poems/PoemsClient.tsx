@@ -65,6 +65,27 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     }, HOLD_MS);
   };
 
+  // ✅ 画像プリロード（既に読んだものは再ロードしない）
+  const loadedRef = useRef<Set<string>>(new Set());
+  const preload = (src: string) => {
+    if (!src) return Promise.resolve();
+    if (loadedRef.current.has(src)) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      const img = new Image();
+      img.src = src;
+      const done = () => {
+        loadedRef.current.add(src);
+        resolve();
+      };
+      img.onload = done;
+      img.onerror = done;
+      // cacheヒット
+      // @ts-ignore
+      if (img.complete) done();
+    });
+  };
+
   // ランダム順キュー
   const orderRef = useRef<number[]>([]);
   const posRef = useRef(0);
@@ -137,15 +158,13 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     setPageVisible(false);
     setBgReady(false);
 
-    // ページは先にふわっと出す（背景はbgReadyで制御）
     const t1 = window.setTimeout(() => setPageVisible(true), 30);
 
-    // ✅ 先に「1枚目」をプリロードして、読み込めたら背景をフェードイン
-    const img = new Image();
-    img.src = items[first].image;
+    // ✅ 1枚目をプリロードしてから表示開始
+    let cancelled = false;
+    preload(items[first].image).then(() => {
+      if (cancelled) return;
 
-    const onOk = () => {
-      // ここで初めて index を確定（＝1枚目チラ見え無し）
       setFront(first);
       setBack(first);
       setShowFront(true);
@@ -153,22 +172,17 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
       setBgReady(true);
 
-      // 背景が出てからテキストを入れる
       window.setTimeout(() => setTextVisible(true), 220);
       window.setTimeout(() => scheduleAuto(), 420);
-    };
-
-    img.onload = onOk;
-    img.onerror = onOk;
+    });
 
     return () => {
+      cancelled = true;
       window.clearTimeout(t1);
       clearAuto();
       if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
       clickEnableTimerRef.current = null;
       clickEnabledRef.current = false;
-      img.onload = null;
-      img.onerror = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
@@ -185,10 +199,15 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     const len = items.length;
     const next = pickNextIndex(len, textIndex);
 
-    // 文字アウト
+    // ✅ 次の画像を先に読み込む（“パッ”防止の核心）
+    const p = preload(items[next].image);
+
+    // 文字アウト開始
     setTextVisible(false);
 
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
+      await p;
+
       // 背景クロスフェード開始
       setBack(next);
       setShowFront(false);
