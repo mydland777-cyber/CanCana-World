@@ -1,11 +1,11 @@
 // app/HomeInteractive.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import HomeClient from "./HomeClient";
 import HeartsLayer from "./components/HeartsLayer";
 
-const TAP_GOAL = 1000; // Secret用
+const TAP_GOAL = 1000;
 const SECRET_SHOW_MS = 12000;
 const SKULL_RATE = 0.7;
 
@@ -88,12 +88,12 @@ const LOGO_SRC = "/logo.png";
 const LOGO_ONCE_KEY = "cancana_logo_once_session_v3";
 const LOGO_BG = "#000";
 
-const LOGO_IN_MS = 520;
-const LOGO_HOLD_MS = 900;
-const LOGO_OUT_MS = 900;
+const LOGO_IN_MS = 800;
+const LOGO_HOLD_MS = 1200;
+const LOGO_OUT_MS = 800;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
-// ✅ Homeは必ずふわっと
+// ✅ Homeの「ふわっと」(ロゴ後/初回じゃない時も)
 const HOME_FADE_MS = 520;
 
 // ===== Profile =====
@@ -186,39 +186,6 @@ async function playSE(src: string, volume = 0.9) {
     a.currentTime = 0;
     await a.play();
   } catch {}
-}
-
-type Particle = {
-  id: number;
-  x: number;
-  y: number;
-  s: number;
-  r: number;
-  dx: number;
-  dy: number;
-  t: number;
-  o: number;
-};
-
-function makeParticles(seed = 0): Particle[] {
-  const n = 42;
-  const arr: Particle[] = [];
-  for (let i = 0; i < n; i++) {
-    const x = 50 + (Math.random() * 2 - 1) * 26;
-    const y = 52 + (Math.random() * 2 - 1) * 16;
-
-    const s = 0.7 + Math.random() * 1.8;
-    const r = (Math.random() * 2 - 1) * 90;
-
-    const dx = (Math.random() * 2 - 1) * (90 + Math.random() * 140);
-    const dy = 140 + Math.random() * 260;
-
-    const t = Math.floor(Math.random() * 240);
-    const o = 0.45 + Math.random() * 0.45;
-
-    arr.push({ id: seed * 1000 + i, x, y, s, r, dx, dy, t, o });
-  }
-  return arr;
 }
 
 type StoredMsg = { id: string; text: string; ts: number };
@@ -346,7 +313,7 @@ async function sbInsertMessage(text: string): Promise<void> {
   if (!res.ok) throw new Error(`Supabase insert failed: ${res.status}`);
 }
 
-function stopAll(e: React.SyntheticEvent) {
+function stopAll(e: SyntheticEvent) {
   e.preventDefault();
   e.stopPropagation();
 }
@@ -360,29 +327,23 @@ export default function HomeInteractive({
   luckyImages?: string[];
   skullImages?: string[];
 }) {
-  const [homeReady, setHomeReady] = useState(false);
+  const [homeReady, setHomeReady] = useState(true);
 
-  // ✅ 初期は出さない（戻るたびのチラ見え防止）
+  // ✅ 初期は false（毎回ロゴが一瞬出るのを防ぐ）
   const [showLogo, setShowLogo] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
-  const [logoForced, setLogoForced] = useState(false);
   const logoBootedRef = useRef(false);
 
-  // ✅ Homeふわっと
-  const [homeVisible, setHomeVisible] = useState(false);
+  // ✅ Homeの「ふわっと」
+  const [homeFade, setHomeFade] = useState(false);
+  const homeFadeTimerRef = useRef<number | null>(null);
 
   const [profileOpen, setProfileOpen] = useState(false);
 
   const [secretSrc, setSecretSrc] = useState<string | null>(null);
   const [secretVisible, setSecretVisible] = useState(false);
 
-  const [sparkle, setSparkle] = useState(false);
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const particleKeyRef = useRef(0);
-
   const hidingRef = useRef<number | null>(null);
-  const sparkleRef = useRef<number | null>(null);
-  const particlesRef = useRef<number | null>(null);
 
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgText, setMsgText] = useState("");
@@ -420,12 +381,13 @@ export default function HomeInteractive({
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
 
-  // ✅ Home表示は必ずふわっと
-  const fadeInHome = () => {
-    setHomeVisible(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setHomeVisible(true));
-    });
+  const triggerHomeFade = () => {
+    setHomeFade(true);
+    if (homeFadeTimerRef.current) window.clearTimeout(homeFadeTimerRef.current);
+    homeFadeTimerRef.current = window.setTimeout(() => {
+      setHomeFade(false);
+      homeFadeTimerRef.current = null;
+    }, HOME_FADE_MS);
   };
 
   // スクロールバー抑止
@@ -574,19 +536,19 @@ export default function HomeInteractive({
   useEffect(() => {
     return () => {
       if (hidingRef.current) window.clearTimeout(hidingRef.current);
-      if (sparkleRef.current) window.clearTimeout(sparkleRef.current);
-      if (particlesRef.current) window.clearTimeout(particlesRef.current);
-
       if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
       if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
       if (msgResetRef.current) window.clearTimeout(msgResetRef.current);
+
+      if (homeFadeTimerRef.current) window.clearTimeout(homeFadeTimerRef.current);
+      homeFadeTimerRef.current = null;
 
       if (hideLogoTimerRef.current) window.clearTimeout(hideLogoTimerRef.current);
       hideLogoTimerRef.current = null;
     };
   }, []);
 
-  // ✅ ロゴ制御（?logo=1 で強制表示・デバッグ）
+  // ✅ ロゴ制御（?logo=1 で強制表示）
   useEffect(() => {
     if (logoBootedRef.current) return;
     logoBootedRef.current = true;
@@ -594,8 +556,6 @@ export default function HomeInteractive({
     const forceLogo =
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("logo") === "1";
-
-    setLogoForced(Boolean(forceLogo));
 
     if (forceLogo) {
       try {
@@ -608,37 +568,29 @@ export default function HomeInteractive({
       already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
     } catch {}
 
-    // ✅ Homeは裏で常に読み込ませたいので「表示準備」だけ進める
-    //    （真っ暗対策：HomeClientは常時マウント）
+    setHomeReady(true);
+
+    // ✅ 既に見ていればロゴ無し＋ふわっとだけ
     if (already && !forceLogo) {
       setShowLogo(false);
-      setHomeReady(true);
-      fadeInHome();
+      triggerHomeFade();
       return;
     }
 
+    // ✅ 初回（or 強制）はロゴを出す（Homeは常に裏で描画）
     setShowLogo(true);
-    setHomeReady(false);
     setLogoLoaded(false);
 
-    // 画像をプリロードして、読めたら loaded にする
     const img = new Image();
     img.src = forceLogo ? `${LOGO_SRC}?v=${Date.now()}` : LOGO_SRC;
 
-    const onOk = () => {
+    const start = () => {
       setLogoLoaded(true);
-
-      // debug時は自動で閉じない
-      if (forceLogo) {
-        setHomeReady(true);
-        return;
-      }
 
       if (hideLogoTimerRef.current) window.clearTimeout(hideLogoTimerRef.current);
       hideLogoTimerRef.current = window.setTimeout(() => {
         setShowLogo(false);
-        setHomeReady(true);
-        fadeInHome();
+        triggerHomeFade();
         try {
           sessionStorage.setItem(LOGO_ONCE_KEY, "1");
         } catch {}
@@ -646,10 +598,10 @@ export default function HomeInteractive({
       }, LOGO_TOTAL_MS);
     };
 
-    img.onload = onOk;
-    img.onerror = onOk;
+    img.onload = start;
+    img.onerror = start;
     // @ts-ignore
-    if (img.complete) onOk();
+    if (img.complete) start();
 
     return () => {
       img.onload = null;
@@ -667,23 +619,7 @@ export default function HomeInteractive({
       : pickOne(luckyImages) ?? "/secret/lucky_01.jpg";
 
     localStorage.setItem(doneKey, "1");
-
-    if (isSkull) {
-      playSE("/se/skull.mp3", 0.85);
-      setSparkle(false);
-      setParticles([]);
-    } else {
-      playSE("/se/lucky.mp3", 0.95);
-      setSparkle(true);
-      particleKeyRef.current += 1;
-      setParticles(makeParticles(particleKeyRef.current));
-
-      if (sparkleRef.current) window.clearTimeout(sparkleRef.current);
-      sparkleRef.current = window.setTimeout(() => setSparkle(false), 900);
-
-      if (particlesRef.current) window.clearTimeout(particlesRef.current);
-      particlesRef.current = window.setTimeout(() => setParticles([]), 1700);
-    }
+    playSE(isSkull ? "/se/skull.mp3" : "/se/lucky.mp3", isSkull ? 0.85 : 0.95);
 
     setSecretSrc(picked);
     setSecretVisible(true);
@@ -750,7 +686,7 @@ export default function HomeInteractive({
           text: clipped,
           ts: Date.now(),
         };
-        const next = [item, ...msgList].filter((m) => within24h(m.ts)).slice(0, 1000);
+        const next = [item, ...msgList].filter((mm) => within24h(mm.ts)).slice(0, 1000);
         setMsgList(next);
         localStorage.setItem(localMsgKey, JSON.stringify(next));
       }
@@ -771,10 +707,6 @@ export default function HomeInteractive({
 
   const nameLines = PROFILE_NAME.split("\n").map((s) => s.trim()).filter(Boolean);
 
-  const debugAlways =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("logo") === "1";
-
   return (
     <div
       style={{
@@ -785,41 +717,31 @@ export default function HomeInteractive({
         touchAction: "manipulation",
       }}
     >
-      {/* ✅ 真っ暗対策：HomeClientは常にマウントして裏で読み込み */}
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          opacity: showLogo ? 0 : homeVisible ? 1 : 0,
-          transition: `opacity ${HOME_FADE_MS}ms ease`,
-          willChange: "opacity",
-        }}
-      >
-        <HomeClient images={images} />
-      </div>
+      {/* ✅ Homeは常に描画（黒フリーズ防止）。ロゴは上に被せるだけ */}
+      <HomeClient images={images} />
 
-      {debugAlways && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-            background: LOGO_BG,
-            color: "#fff",
-            padding: 12,
-            fontSize: 18,
-            fontWeight: 900,
-            letterSpacing: "0.08em",
-            pointerEvents: "none",
-          }}
-        >
-          HOMEINTERACTIVE DEBUG (logo=1)
-          <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800 }}>
-            showLogo={String(showLogo)} homeReady={String(homeReady)} logoLoaded={String(logoLoaded)} forced=
-            {String(logoForced)}
-          </div>
-        </div>
+      {/* ✅ Home ふわっと（ロゴ後/ロゴ無しでも） */}
+      {homeFade && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 60,
+              pointerEvents: "none",
+              background: "#000",
+              opacity: 1,
+              animation: `homeFade ${HOME_FADE_MS}ms ease-out forwards`,
+            }}
+          />
+          <style>{`
+            @keyframes homeFade{
+              0%{ opacity: 1; }
+              100%{ opacity: 0; }
+            }
+          `}</style>
+        </>
       )}
 
       {msgViews.length > 0 && !showLogo && homeReady && (
@@ -861,6 +783,31 @@ export default function HomeInteractive({
               82%  { opacity: 1; transform: translateY(0px) scale(1.0); }
               100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
             }
+
+            .uiBtn{
+              transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
+              will-change: transform, box-shadow;
+              -webkit-tap-highlight-color: transparent;
+              user-select: none;
+            }
+            .uiBtn:hover{
+              background: rgba(255,255,255,0.08) !important;
+              border-color: rgba(255,255,255,0.18) !important;
+              box-shadow:
+                0 0 0 1px rgba(255,255,255,0.18),
+                0 8px 30px rgba(255,255,255,0.12);
+              transform: translateY(-1px);
+              color: rgba(255,255,255,0.98) !important;
+            }
+            .uiBtn:active{
+              transform: translateY(0px);
+            }
+            .uiBtn:focus-visible{
+              outline: none;
+              box-shadow:
+                0 0 0 3px rgba(255,255,255,0.18),
+                0 8px 30px rgba(255,255,255,0.12);
+            }
           `}</style>
         </div>
       )}
@@ -870,6 +817,7 @@ export default function HomeInteractive({
       {showProfileButton && (
         <button
           type="button"
+          className="uiBtn"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setProfileOpen(true)}
           style={{
@@ -895,30 +843,77 @@ export default function HomeInteractive({
 
       {/* Logo overlay */}
       {showLogo && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-            background: LOGO_BG,
-            display: "grid",
-            placeItems: "center",
-            pointerEvents: "all",
-          }}
-        >
-          <img
-            src={LOGO_SRC}
-            alt="logo"
+        <>
+          <div
             style={{
-              width: "min(70vw, 420px)",
-              height: "auto",
-              display: "block",
+              position: "fixed",
+              inset: 0,
+              zIndex: 999999,
+              background: LOGO_BG,
+              display: "grid",
+              placeItems: "center",
+              pointerEvents: "all",
+              animation:
+                typeof window !== "undefined" &&
+                new URLSearchParams(window.location.search).get("logo") === "1"
+                  ? "none"
+                  : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
             }}
-          />
-        </div>
+          >
+            <img
+              src={LOGO_SRC}
+              alt="logo"
+              style={{
+                width: "min(70vw, 420px)",
+                height: "auto",
+                display: "block",
+                willChange: "filter, opacity, transform",
+                animation:
+                  typeof window !== "undefined" &&
+                  new URLSearchParams(window.location.search).get("logo") === "1"
+                    ? "none"
+                    : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
+              }}
+            />
+          </div>
+
+          <style>{`
+            @keyframes logoOverlay{
+              0%{opacity:1}
+              100%{opacity:1}
+            }
+
+            @keyframes logoGaussian{
+              0%{
+                opacity: 0;
+                filter: blur(400px);
+                transform: scale(1.02);
+              }
+              ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              100%{
+                opacity: 0;
+                filter: blur(500px);
+                transform: scale(1.03);
+              }
+            }
+
+            @media (prefers-reduced-motion: reduce){
+              *{ animation:none !important; }
+            }
+          `}</style>
+        </>
       )}
 
-      {/* Secret overlay（最小） */}
+      {/* Secret overlay */}
       {secretSrc && (
         <div
           aria-hidden
@@ -988,7 +983,7 @@ export default function HomeInteractive({
             }}
           >
             <div style={{ fontSize: 14, letterSpacing: "0.10em", opacity: 0.9 }}>
-              みんなへメッセージ（24時間共有）
+              メッセージを書いてね♡（24時間共有）
             </div>
 
             <div style={{ marginTop: 10 }}>
@@ -1016,6 +1011,7 @@ export default function HomeInteractive({
             <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="uiBtn"
                 onClick={() => {
                   setMsgOpen(false);
                   setMsgText("");
@@ -1036,6 +1032,7 @@ export default function HomeInteractive({
 
               <button
                 type="button"
+                className="uiBtn"
                 disabled={!msgText.trim() || Boolean(validationError)}
                 onClick={postMessage}
                 style={{
@@ -1108,6 +1105,7 @@ export default function HomeInteractive({
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
               <button
                 type="button"
+                className="uiBtn"
                 onClick={() => setProfileOpen(false)}
                 style={{
                   padding: "10px 12px",
@@ -1125,6 +1123,34 @@ export default function HomeInteractive({
           </div>
         </div>
       )}
+
+      {/* uiBtn CSS（msgViewsが0でも効く） */}
+      <style>{`
+        .uiBtn{
+          transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
+          will-change: transform, box-shadow;
+          -webkit-tap-highlight-color: transparent;
+          user-select: none;
+        }
+        .uiBtn:hover{
+          background: rgba(255,255,255,0.08) !important;
+          border-color: rgba(255,255,255,0.18) !important;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.18),
+            0 8px 30px rgba(255,255,255,0.12);
+          transform: translateY(-1px);
+          color: rgba(255,255,255,0.98) !important;
+        }
+        .uiBtn:active{
+          transform: translateY(0px);
+        }
+        .uiBtn:focus-visible{
+          outline: none;
+          box-shadow:
+            0 0 0 3px rgba(255,255,255,0.18),
+            0 8px 30px rgba(255,255,255,0.12);
+        }
+      `}</style>
     </div>
   );
 }
