@@ -14,7 +14,7 @@ const TEXT_IN_DELAY = 120;
 // ランダム制御
 const AVOID_RECENT = 7;
 
-// ✅ 画像プリロードを「待ちすぎない」ための上限（これがないと切替が止まる）
+// ✅ プリロード待ちを無限にしない（遅い回線でも“止まらない”）
 const PRELOAD_MAX_MS = 1200;
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
@@ -34,6 +34,8 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const [showFront, setShowFront] = useState(true);
 
   const [textIndex, setTextIndex] = useState(-1);
+  const textIndexRef = useRef(-1);
+
   const [textVisible, setTextVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
 
@@ -55,20 +57,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   // 入場直後の誤クリック防止
   const clickEnabledRef = useRef(false);
   const clickEnableTimerRef = useRef<number | null>(null);
-
-  // タイマー（自動）
-  const autoTimerRef = useRef<number | null>(null);
-  const clearAuto = () => {
-    if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current);
-    autoTimerRef.current = null;
-  };
-  const scheduleAuto = () => {
-    clearAuto();
-    if (items.length <= 1) return;
-    autoTimerRef.current = window.setTimeout(() => {
-      stepNext("auto");
-    }, HOLD_MS);
-  };
 
   // ✅ 画像プリロード（既に読んだものは再ロードしない）
   const loadedRef = useRef<Set<string>>(new Set());
@@ -132,12 +120,30 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     return 0;
   };
 
+  // ✅ 自動進行：setIntervalで常時回す（これが一番止まらない）
+  const autoIntervalRef = useRef<number | null>(null);
+  const stopAuto = () => {
+    if (autoIntervalRef.current) window.clearInterval(autoIntervalRef.current);
+    autoIntervalRef.current = null;
+  };
+  const startAuto = () => {
+    stopAuto();
+    if (items.length <= 1) return;
+
+    autoIntervalRef.current = window.setInterval(() => {
+      if (document.hidden) return;
+      if (switchingRef.current) return;
+      if (textIndexRef.current < 0) return;
+      stepNext("auto");
+    }, HOLD_MS);
+  };
+
   // 初期化（初回フェード）
   useEffect(() => {
     if (!items.length) return;
 
     switchingRef.current = false;
-    clearAuto();
+    stopAuto();
 
     // クリック無効（入場直後）
     clickEnabledRef.current = false;
@@ -157,6 +163,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     setFront(-1);
     setBack(-1);
     setTextIndex(-1);
+    textIndexRef.current = -1;
     setShowFront(true);
     setTextVisible(false);
     setPageVisible(false);
@@ -166,7 +173,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
     let cancelled = false;
 
-    // ✅ 1枚目をプリロードしてから表示開始（ただし待ちすぎない）
+    // ✅ 1枚目をプリロードしてから表示開始（待ちすぎない）
     Promise.race([preload(items[first].image), wait(PRELOAD_MAX_MS)]).then(() => {
       if (cancelled) return;
 
@@ -174,8 +181,8 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       setBack(first);
       setShowFront(true);
       setTextIndex(first);
+      textIndexRef.current = first;
 
-      // ✅ 必ず「opacity=0の描画」を1回挟む
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (cancelled) return;
@@ -183,15 +190,16 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
         });
       });
 
-      // テキストは背景が出始めてから
       window.setTimeout(() => setTextVisible(true), 260);
-      window.setTimeout(() => scheduleAuto(), 460);
+
+      // ✅ 自動開始（ここが“確実に動く”ポイント）
+      window.setTimeout(() => startAuto(), 460);
     });
 
     return () => {
       cancelled = true;
       window.clearTimeout(t1);
-      clearAuto();
+      stopAuto();
       if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
       clickEnableTimerRef.current = null;
       clickEnabledRef.current = false;
@@ -199,65 +207,15 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
-  // 切替本体（auto/click共通）
-  const stepNext = (reason: "auto" | "click") => {
-    if (items.length <= 1) return;
-    if (switchingRef.current) return;
-    if (textIndex < 0) return;
-
-    switchingRef.current = true;
-    clearAuto();
-
-    const len = items.length;
-    const next = pickNextIndex(len, textIndex);
-
-    // ✅ 次の画像を先に読み込む（でも待ちすぎない）
-    const p = preload(items[next].image);
-
-    setTextVisible(false);
-
-    window.setTimeout(async () => {
-      // ✅ ここが核心：プリロードが遅くても最大 PRELOAD_MAX_MS で切替に進む
-      await Promise.race([p, wait(PRELOAD_MAX_MS)]);
-
-      setBack(next);
-      setShowFront(false);
-
-      window.setTimeout(() => {
-        setFront(next);
-        setShowFront(true);
-
-        setTextIndex(next);
-        pushRecent(next, len);
-
-        window.setTimeout(() => {
-          setTextVisible(true);
-          switchingRef.current = false;
-          scheduleAuto();
-        }, TEXT_IN_DELAY);
-      }, BG_FADE_MS);
-    }, TEXT_OUT_MS);
-  };
-
-  // ✅ textIndexが変わったら「必ず」自動タイマーを再セット
-  useEffect(() => {
-    if (items.length <= 1) return;
-    if (textIndex < 0) return;
-    if (switchingRef.current) return;
-    scheduleAuto();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textIndex, items.length]);
-
-  // ✅ タブ復帰/フォーカス復帰で再開（モバイルで止まる対策）
+  // ✅ タブ復帰/フォーカス復帰で再開（モバイル対策）
   useEffect(() => {
     const onResume = () => {
       if (items.length <= 1) return;
-      if (textIndex < 0) return;
-      if (switchingRef.current) return;
-      scheduleAuto();
+      if (textIndexRef.current < 0) return;
+      startAuto();
     };
     const onVis = () => {
-      if (document.hidden) clearAuto();
+      if (document.hidden) stopAuto();
       else onResume();
     };
 
@@ -269,17 +227,58 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       document.removeEventListener("visibilitychange", onVis);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, textIndex]);
+  }, [items.length]);
+
+  // 切替本体（auto/click共通）
+  const stepNext = (reason: "auto" | "click") => {
+    if (items.length <= 1) return;
+    if (switchingRef.current) return;
+    const cur = textIndexRef.current;
+    if (cur < 0) return;
+
+    switchingRef.current = true;
+
+    const len = items.length;
+    const next = pickNextIndex(len, cur);
+
+    // ✅ 次の画像を先に読み込む（でも待ちすぎない）
+    const p = preload(items[next].image);
+
+    setTextVisible(false);
+
+    window.setTimeout(async () => {
+      await Promise.race([p, wait(PRELOAD_MAX_MS)]);
+
+      setBack(next);
+      setShowFront(false);
+
+      window.setTimeout(() => {
+        setFront(next);
+        setShowFront(true);
+
+        setTextIndex(next);
+        textIndexRef.current = next;
+        pushRecent(next, len);
+
+        window.setTimeout(() => {
+          setTextVisible(true);
+          switchingRef.current = false;
+
+          // ✅ 手動クリックでも自動は継続（interval方式なので勝手に続く）
+          if (items.length > 1) startAuto();
+        }, TEXT_IN_DELAY);
+      }, BG_FADE_MS);
+    }, TEXT_OUT_MS);
+  };
 
   // アンマウント掃除
   useEffect(() => {
     return () => {
-      clearAuto();
+      stopAuto();
       if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
       clickEnableTimerRef.current = null;
       clickEnabledRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const current = textIndex >= 0 ? items[textIndex] : null;
@@ -453,7 +452,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
               textShadow: "0 1px 2px rgba(0,0,0,0.75)",
               padding: "24px 12px",
               pointerEvents: "none",
-
               opacity: textVisible ? 1 : 0,
               transform: textVisible ? "translateY(0px)" : "translateY(18px)",
               filter: textVisible ? "blur(0px)" : "blur(2px)",
