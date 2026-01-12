@@ -10,7 +10,7 @@ const TEXT_OUT_MS = 1000;
 const BG_FADE_MS = 2600;
 const TEXT_IN_DELAY = 120;
 
-// ランダム制御（「できるだけ避ける」個数）
+// ランダム制御
 const AVOID_RECENT = 7;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -23,7 +23,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function PoemsClient({ items }: { items: PoemItem[] }) {
-  // ✅ 初期チラ見え防止：-1で開始（準備完了まで描画しない）
+  // ✅ 初期チラ見え防止：-1で開始
   const [front, setFront] = useState(-1);
   const [back, setBack] = useState(-1);
   const [showFront, setShowFront] = useState(true);
@@ -32,9 +32,12 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const [textVisible, setTextVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
 
+  // ✅ 初回背景だけ「プリロード完了→フェードイン」
+  const [bgReady, setBgReady] = useState(false);
+
   const switchingRef = useRef(false);
 
-  // ★スマホ判定（幅 767px 以下をスマホ扱い）
+  // スマホ判定
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -44,11 +47,11 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     return () => mq.removeEventListener?.("change", apply);
   }, []);
 
-  // ✅ 入場直後の誤クリック（移動タップが残る）対策：少しだけクリック無効
+  // 入場直後の誤クリック防止
   const clickEnabledRef = useRef(false);
   const clickEnableTimerRef = useRef<number | null>(null);
 
-  // タイマー（自動）管理
+  // タイマー（自動）
   const autoTimerRef = useRef<number | null>(null);
   const clearAuto = () => {
     if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current);
@@ -92,18 +95,15 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     for (let attempt = 0; attempt < len * 4; attempt++) {
       if (posRef.current >= orderRef.current.length) buildNewOrder(len);
       const cand = orderRef.current[posRef.current++];
-
       if (cand !== currentIdx && !recentRef.current.includes(cand)) return cand;
     }
 
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx && !recentRef.current.includes(i)) return i;
     }
-
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx) return i;
     }
-
     return 0;
   };
 
@@ -114,7 +114,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     switchingRef.current = false;
     clearAuto();
 
-    // クリック無効（入場直後の“パパっ”防止）
+    // クリック無効（入場直後）
     clickEnabledRef.current = false;
     if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
     clickEnableTimerRef.current = window.setTimeout(() => {
@@ -128,34 +128,47 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     const first = pickNextIndex(items.length, -1);
     pushRecent(first, items.length);
 
-    // ✅ 先に“未表示”状態を作ってから、確定値を入れる（初期チラ見えゼロ）
+    // いったん未表示へ
     setFront(-1);
     setBack(-1);
     setTextIndex(-1);
     setShowFront(true);
     setTextVisible(false);
     setPageVisible(false);
+    setBgReady(false);
 
-    const t0 = window.setTimeout(() => {
+    // ページは先にふわっと出す（背景はbgReadyで制御）
+    const t1 = window.setTimeout(() => setPageVisible(true), 30);
+
+    // ✅ 先に「1枚目」をプリロードして、読み込めたら背景をフェードイン
+    const img = new Image();
+    img.src = items[first].image;
+
+    const onOk = () => {
+      // ここで初めて index を確定（＝1枚目チラ見え無し）
       setFront(first);
       setBack(first);
       setShowFront(true);
       setTextIndex(first);
-    }, 0);
 
-    const t1 = window.setTimeout(() => setPageVisible(true), 30);
-    const t2 = window.setTimeout(() => setTextVisible(true), 520);
-    const t3 = window.setTimeout(() => scheduleAuto(), 650);
+      setBgReady(true);
+
+      // 背景が出てからテキストを入れる
+      window.setTimeout(() => setTextVisible(true), 220);
+      window.setTimeout(() => scheduleAuto(), 420);
+    };
+
+    img.onload = onOk;
+    img.onerror = onOk;
 
     return () => {
-      window.clearTimeout(t0);
       window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
       clearAuto();
       if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
       clickEnableTimerRef.current = null;
       clickEnabledRef.current = false;
+      img.onload = null;
+      img.onerror = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
@@ -164,7 +177,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const stepNext = (reason: "auto" | "click") => {
     if (items.length <= 1) return;
     if (switchingRef.current) return;
-    if (textIndex < 0) return; // ✅ 初期化前は進めない
+    if (textIndex < 0) return;
 
     switchingRef.current = true;
     clearAuto();
@@ -193,15 +206,13 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
           // 文字イン
           setTextVisible(true);
           switchingRef.current = false;
-
-          // 自動再開
           scheduleAuto();
         }, TEXT_IN_DELAY);
       }, BG_FADE_MS);
     }, TEXT_OUT_MS);
   };
 
-  // アンマウント時にタイマー掃除
+  // アンマウント掃除
   useEffect(() => {
     return () => {
       clearAuto();
@@ -264,7 +275,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
         justifyContent: "center",
         padding: 24,
         opacity: pageVisible ? 1 : 0,
-        transition: "opacity 1200ms ease",
+        transition: "opacity 900ms ease",
         cursor: items.length > 1 ? "pointer" : "default",
         userSelect: "none",
       }}
@@ -276,13 +287,14 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
         </div>
       ) : !ready ? null : (
         <>
-          {/* 背景 */}
+          {/* 背景（初回だけbgReadyでフェードイン） */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               filter: "brightness(0.9) contrast(0.95) saturate(0.92)",
-              opacity: 1,
+              opacity: bgReady ? 1 : 0,
+              transition: "opacity 900ms ease",
               transform: "translateZ(0)",
             }}
           >
