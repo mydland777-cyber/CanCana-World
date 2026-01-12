@@ -25,53 +25,55 @@ function mulberry32(seed: number) {
 }
 
 export default function SupportBackground({ images, count = 18 }: Props) {
-  const safeImages = images ?? [];
-  if (!safeImages.length) return null;
+  if (!images?.length) return null;
 
-  const seed = useMemo(() => hashString(safeImages.join("|") + "|support"), [safeImages]);
+  const seed = useMemo(() => hashString(images.join("|") + "|support"), [images]);
   const tiles = useMemo(() => {
     const rnd = mulberry32(seed);
+    return Array.from({ length: Math.min(count, images.length * 3) }).map((_, i) => {
+      const src = images[i % images.length];
 
-    return Array.from({ length: Math.min(count, safeImages.length * 3) }).map((_, i) => {
-      const src = safeImages[i % safeImages.length];
-
-      // 位置・回転・サイズを「無茶苦茶」に（でも安定）
       const left = rnd() * 100;
       const top = rnd() * 100;
-      const rot = (rnd() * 2 - 1) * 18; // -18〜18deg
-      const scale = 0.9 + rnd() * 0.5; // 0.9〜1.4
-      const w = 28 + rnd() * 26; // 28〜54 vw
-      const opacity = 0.18 + rnd() * 0.18; // 0.18〜0.36
+      const rot = (rnd() * 2 - 1) * 18;
+      const scale = 0.9 + rnd() * 0.5;
+      const w = 28 + rnd() * 26;
+      const opacity = 0.18 + rnd() * 0.18;
 
       return { src, left, top, rot, scale, w, opacity, key: i };
     });
-  }, [seed, safeImages, count]);
+  }, [seed, images, count]);
 
   // ★ここが「後ろのぼかし」
-  const BLUR_PX = 24; // ← ここを 18 / 30 とかに変える
-  const BRIGHT = 0.85; // 明るさ
-  const SAT = 0.9; // 彩度
+  const BLUR_PX = 24;
+  const BRIGHT = 0.85;
+  const SAT = 0.9;
 
-  const bgImgStyle = {
-    position: "absolute" as const,
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover" as const,
-  };
+  // ✅ まずは少数だけ先に出す（初回の体感を速くする）
+  const FAST_TILES = 8;
 
-  // ✅ この背景で使う画像だけをプリロード（パラパラ対策）
-  const srcList = useMemo(() => {
-    const uniq = new Set<string>();
-    for (const t of tiles) uniq.add(t.src);
-    return Array.from(uniq);
-  }, [tiles]);
+  const fastTiles = useMemo(() => tiles.slice(0, Math.min(FAST_TILES, tiles.length)), [tiles]);
+  const slowTiles = useMemo(() => tiles.slice(Math.min(FAST_TILES, tiles.length)), [tiles]);
 
-  const [ready, setReady] = useState(false);
+  const fastSrcList = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of fastTiles) s.add(t.src);
+    return Array.from(s);
+  }, [fastTiles]);
+
+  const slowSrcList = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of slowTiles) s.add(t.src);
+    return Array.from(s);
+  }, [slowTiles]);
+
+  const [fastReady, setFastReady] = useState(false);
+  const [slowReady, setSlowReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setReady(false);
+    setFastReady(false);
+    setSlowReady(false);
 
     const preloadOne = (src: string) =>
       new Promise<void>((resolve) => {
@@ -84,20 +86,43 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         if (img.complete) done();
       });
 
-    Promise.all(srcList.map(preloadOne)).then(() => {
+    // ① 少数だけ先に読む → 出す
+    Promise.all(fastSrcList.map(preloadOne)).then(() => {
       if (cancelled) return;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (cancelled) return;
-          setReady(true);
+          setFastReady(true);
         });
       });
+
+      // ② 余力で残りを読む → 追加分をふわっと足す
+      const kick = () => {
+        Promise.all(slowSrcList.map(preloadOne)).then(() => {
+          if (cancelled) return;
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (cancelled) return;
+              setSlowReady(true);
+            });
+          });
+        });
+      };
+
+      // idleがあれば使う（なければ少し遅らせる）
+      // @ts-ignore
+      if (typeof requestIdleCallback === "function") {
+        // @ts-ignore
+        requestIdleCallback(kick, { timeout: 1200 });
+      } else {
+        window.setTimeout(kick, 450);
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [srcList.join("|")]);
+  }, [fastSrcList.join("|"), slowSrcList.join("|")]);
 
   return (
     <div
@@ -111,24 +136,28 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         zIndex: 0,
       }}
     >
-      {/* 敷き詰めレイヤー（画像は全部読み込み完了後に一括でふわっと出す） */}
+      {/* 先に出すレイヤー（少数） */}
       <div
         style={{
           position: "absolute",
           inset: "-10%",
           filter: `blur(${BLUR_PX}px) brightness(${BRIGHT}) saturate(${SAT})`,
           transform: "translateZ(0)",
-          opacity: ready ? 1 : 0,
-          transition: "opacity 800ms ease",
+          opacity: fastReady ? 1 : 0,
+          transition: "opacity 700ms ease",
           willChange: "opacity",
         }}
       >
-        {tiles.map((t) => (
+        {fastTiles.map((t, idx) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={t.key}
             src={t.src}
             alt=""
+            // ✅ 最初の数枚だけ優先（解像度はそのまま）
+            fetchPriority={idx < 2 ? "high" : "auto"}
+            loading={idx < 2 ? "eager" : "lazy"}
+            decoding="async"
             style={{
               position: "absolute",
               left: `${t.left}%`,
@@ -144,33 +173,44 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         ))}
       </div>
 
-      {/* 周辺減光（これは固定でOK） */}
+      {/* 後から足すレイヤー（残り全部） */}
+      {slowTiles.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: "-10%",
+            filter: `blur(${BLUR_PX}px) brightness(${BRIGHT}) saturate(${SAT})`,
+            transform: "translateZ(0)",
+            opacity: slowReady ? 1 : 0,
+            transition: "opacity 900ms ease",
+            willChange: "opacity",
+          }}
+        >
+          {slowTiles.map((t) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={t.key}
+              src={t.src}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              style={{
+                position: "absolute",
+                left: `${t.left}%`,
+                top: `${t.top}%`,
+                width: `${t.w}vw`,
+                height: "auto",
+                transform: `translate(-50%,-50%) rotate(${t.rot}deg) scale(${t.scale})`,
+                opacity: t.opacity,
+                borderRadius: 18,
+                boxShadow: "0 30px 120px rgba(0,0,0,0.35)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 周辺減光 */}
       <div
         style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(circle at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.72) 100%)",
-        }}
-      />
-
-      {/* ✅ 霞（screen）が“ぴかぴか”の犯人になりやすいので、ready後にふわっと出す */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(255,255,255,0.06)",
-          mixBlendMode: "screen",
-          opacity: ready ? 0.18 : 0,
-          transition: "opacity 900ms ease",
-        }}
-      />
-
-      <style>{`
-        @media (prefers-reduced-motion: reduce){
-          *{ transition:none !important; }
-        }
-      `}</style>
-    </div>
-  );
-}
+          position: "
