@@ -988,7 +988,7 @@ export default function HomeInteractive({
             }}
           >
             <div style={{ fontSize: 14, letterSpacing: "0.10em", opacity: 0.9 }}>
-              みんなへメッセージ（24時間共有）
+              メッセージを書いてね♡（24時間共有）
             </div>
 
             <div style={{ marginTop: 10 }}>
