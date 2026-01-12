@@ -8,7 +8,6 @@ const FADE_OUT_MS = 2000;
 const SHARPEN_MS = 1200;
 const PAGE_IN_MS = 1200;
 
-// 直近回避
 const AVOID_RECENT = 4;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -20,21 +19,27 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export default function HomeClient({ images }: { images: string[] }) {
+export default function HomeClient({
+  images,
+  active = true,
+  onFirstReady,
+}: {
+  images: string[];
+  active?: boolean;
+  onFirstReady?: () => void;
+}) {
   const [front, setFront] = useState(0);
   const [back, setBack] = useState(0);
 
-  // 1→0 を切り替えるだけ
   const [mix, setMix] = useState(1);
   const [blurred, setBlurred] = useState(false);
 
-  // ✅ 初回：画像プリロード完了後に“ふわっ”と出す
   const [pageVisible, setPageVisible] = useState(false);
   const [bgReady, setBgReady] = useState(false);
 
   const idxRef = useRef(0);
+  const firstReadyOnceRef = useRef(false);
 
-  // ランダム順キュー
   const orderRef = useRef<number[]>([]);
   const posRef = useRef(0);
   const recentRef = useRef<number[]>([]);
@@ -70,33 +75,40 @@ export default function HomeClient({ images }: { images: string[] }) {
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx && !recentRef.current.includes(i)) return i;
     }
-
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx) return i;
     }
-
     return 0;
   };
+
+  // active 切替（ロゴ中はactive=falseで裏だけ準備）
+  useEffect(() => {
+    if (!active) {
+      setPageVisible(false);
+      return;
+    }
+    if (bgReady) {
+      window.setTimeout(() => setPageVisible(true), 30);
+    }
+  }, [active, bgReady]);
 
   useEffect(() => {
     if (!images.length) return;
 
     const len = images.length;
 
-    // 初回は“黒”から
+    // 初回は黒から
     setPageVisible(false);
     setBgReady(false);
+    firstReadyOnceRef.current = false;
 
-    // キュー初期化
     buildNewOrder(len);
     recentRef.current = [];
 
-    // 初回ランダム
     const start = pickNextIndex(len, -1);
     idxRef.current = start;
     pushRecent(start, len);
 
-    // ✅ 先に1枚目をプリロードしてから表示開始（パッを消す）
     const img = new Image();
     img.src = images[start];
 
@@ -105,13 +117,17 @@ export default function HomeClient({ images }: { images: string[] }) {
       setBack(start);
       setMix(1);
 
-      // 初回：ボケ→くっきり
       setBlurred(true);
       requestAnimationFrame(() => requestAnimationFrame(() => setBlurred(false)));
 
       setBgReady(true);
-      // ふわっと入場（CSSトランジションが確実に走るように少し待つ）
-      window.setTimeout(() => setPageVisible(true), 30);
+
+      if (!firstReadyOnceRef.current) {
+        firstReadyOnceRef.current = true;
+        onFirstReady?.();
+      }
+
+      if (active) window.setTimeout(() => setPageVisible(true), 30);
     };
 
     img.onload = onOk;
@@ -120,20 +136,15 @@ export default function HomeClient({ images }: { images: string[] }) {
     const interval = window.setInterval(() => {
       const next = pickNextIndex(len, idxRef.current);
 
-      // 次を裏に仕込む
       setBack(next);
-
-      // OUT
       setMix(0);
 
-      // OUT完了後にfront確定→IN
       window.setTimeout(() => {
         setFront(next);
         idxRef.current = next;
         pushRecent(next, len);
 
         setBlurred(true);
-
         requestAnimationFrame(() => {
           setMix(1);
           requestAnimationFrame(() => requestAnimationFrame(() => setBlurred(false)));
@@ -146,7 +157,7 @@ export default function HomeClient({ images }: { images: string[] }) {
       img.onload = null;
       img.onerror = null;
     };
-  }, [images]);
+  }, [images, active, onFirstReady]);
 
   const frontSrc = images[front] ?? "";
   const backSrc = images[back] ?? "";
@@ -173,7 +184,6 @@ export default function HomeClient({ images }: { images: string[] }) {
         transition: `opacity ${PAGE_IN_MS}ms ease`,
       }}
     >
-      {/* 背景（同じ画像を拡大してボケ） */}
       {bgReady && (
         <div
           style={{
@@ -206,10 +216,8 @@ export default function HomeClient({ images }: { images: string[] }) {
         </div>
       )}
 
-      {/* ベール */}
       <div aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.33)" }} />
 
-      {/* 手前（2枚だけ） */}
       {bgReady && (
         <div
           style={{

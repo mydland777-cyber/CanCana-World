@@ -92,6 +92,9 @@ const LOGO_HOLD_MS = 1200;
 const LOGO_OUT_MS = 800;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
+// ✅ ロゴ後の真っ暗防止：Home背景が間に合わない時の保険（無限待ち回避）
+const HOME_BG_WAIT_MAX_MS = 6500;
+
 // ===== Profile =====
 const PROFILE_NAME = `CanCana（キャンカナ）
 役者名：星空　奏（ほしぞら　かな）`;
@@ -353,6 +356,12 @@ export default function HomeInteractive({
 
   const [isMobile, setIsMobile] = useState(false);
 
+  // ✅ Home背景の最初の1枚をプリロード（ロゴ終了と同期）
+  const [homeBgPreloaded, setHomeBgPreloaded] = useState(false);
+  const logoDoneRef = useRef(false);
+  const pendingHideRef = useRef(false);
+  const hideTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const apply = () => setIsMobile(mq.matches);
@@ -369,6 +378,29 @@ export default function HomeInteractive({
   const localMsgKey = `cancana_msgs_24h`;
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
+
+  // ✅ Home背景先読み（1枚だけ）
+  useEffect(() => {
+    if (!images.length) {
+      setHomeBgPreloaded(true);
+      return;
+    }
+    setHomeBgPreloaded(false);
+
+    const img = new Image();
+    img.src = images[0];
+
+    const done = () => setHomeBgPreloaded(true);
+    img.onload = done;
+    img.onerror = done;
+    // @ts-ignore
+    if (img.complete) done();
+
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [images]);
 
   // スクロールバー抑止
   useEffect(() => {
@@ -519,6 +551,9 @@ export default function HomeInteractive({
       if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
       if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
       if (msgResetRef.current) window.clearTimeout(msgResetRef.current);
+
+      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
     };
   }, []);
 
@@ -552,19 +587,44 @@ export default function HomeInteractive({
     setHomeReady(false);
     setLogoLoaded(false);
 
+    logoDoneRef.current = false;
+    pendingHideRef.current = false;
+
     const img = new Image();
     img.src = forceLogo ? `${LOGO_SRC}?v=${Date.now()}` : LOGO_SRC;
+
+    const tryFinish = () => {
+      if (!logoDoneRef.current) return;
+      if (!homeBgPreloaded) return;
+
+      setShowLogo(false);
+      setHomeReady(true);
+      try {
+        sessionStorage.setItem(LOGO_ONCE_KEY, "1");
+      } catch {}
+
+      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+      pendingHideRef.current = false;
+    };
 
     const onOk = () => {
       setLogoLoaded(true);
       if (forceLogo) return;
 
       window.setTimeout(() => {
-        setShowLogo(false);
-        setHomeReady(true);
-        try {
-          sessionStorage.setItem(LOGO_ONCE_KEY, "1");
-        } catch {}
+        logoDoneRef.current = true;
+        pendingHideRef.current = true;
+        tryFinish();
+
+        // ✅ 保険：背景が極端に遅い時もいつかは抜ける
+        if (!hideTimeoutRef.current) {
+          hideTimeoutRef.current = window.setTimeout(() => {
+            setShowLogo(false);
+            setHomeReady(true);
+            hideTimeoutRef.current = null;
+          }, HOME_BG_WAIT_MAX_MS);
+        }
       }, LOGO_TOTAL_MS);
     };
 
@@ -576,7 +636,8 @@ export default function HomeInteractive({
       img.onload = null;
       img.onerror = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeBgPreloaded]);
 
   const triggerSecret = async () => {
     if (localStorage.getItem(doneKey) === "1") return;
@@ -685,7 +746,8 @@ export default function HomeInteractive({
         touchAction: "manipulation",
       }}
     >
-      {homeReady && <HomeClient images={images} />}
+      {/* ✅ HomeClient を最初からマウントして裏で読み込ませる（ロゴ中は上に被さるだけ） */}
+      <HomeClient images={images} />
 
       {msgViews.length > 0 && !showLogo && homeReady && (
         <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 25, pointerEvents: "none" }}>
@@ -727,7 +789,6 @@ export default function HomeInteractive({
               100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
             }
 
-            /* ✅ ホバー統一（menu/hamburgerと同系） */
             .uiBtn{
               transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
               will-change: transform, box-shadow;
@@ -758,7 +819,6 @@ export default function HomeInteractive({
 
       <HeartsLayer enabled={!blockTap && !uiBlocking} onTap={blockTap || uiBlocking ? () => {} : onTap} />
 
-      {/* ✅ Profile（左下）— hover統一 */}
       {showProfileButton && (
         <button
           type="button"
@@ -828,7 +888,6 @@ export default function HomeInteractive({
               100%{opacity:1}
             }
 
-            /* ガウス：400px → 0px → 500px */
             @keyframes logoGaussian{
               0%{
                 opacity: 0;
@@ -999,7 +1058,7 @@ export default function HomeInteractive({
         </div>
       )}
 
-      {/* Profile modal（Closeは下に1か所だけ・hover統一） */}
+      {/* Profile modal */}
       {profileOpen && (
         <div
           role="dialog"
@@ -1070,7 +1129,7 @@ export default function HomeInteractive({
         </div>
       )}
 
-      {/* ✅ uiBtn のstyleを常に効かせる（msgViewsが0でも必要なのでここにも置く） */}
+      {/* uiBtn CSS（msgViewsが0でも効く） */}
       <style>{`
         .uiBtn{
           transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
