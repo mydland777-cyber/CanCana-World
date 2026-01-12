@@ -373,7 +373,9 @@ export default function HomeInteractive({
   const [homeReady, setHomeReady] = useState(false);
   const [showLogo, setShowLogo] = useState(false);
 
-  // Profile
+  
+  const forceLogo = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("logo") === "1";
+// Profile
   const [profileOpen, setProfileOpen] = useState(false);
 
   // Secret
@@ -1114,7 +1116,7 @@ export default function HomeInteractive({
       )}
 
       {/* Logo overlay (DEBUG SIMPLE) */}
-{showLogo && (
+{(showLogo || forceLogo) && (
   <div
     style={{
       position: "fixed",
