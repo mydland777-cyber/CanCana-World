@@ -6,10 +6,9 @@ const HOLD_MS = 10000;
 const FADE_IN_MS = 3200;
 const FADE_OUT_MS = 2000;
 const SHARPEN_MS = 1200;
-const PAGE_IN_MS = 900;
+const PAGE_IN_MS = 1200;
 
-// ★直近回避（“できるだけ”）
-// 画像が多いなら 3〜5 くらいが自然。少ない場合は中で安全に丸めます。
+// 直近回避
 const AVOID_RECENT = 4;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -25,22 +24,21 @@ export default function HomeClient({ images }: { images: string[] }) {
   const [front, setFront] = useState(0);
   const [back, setBack] = useState(0);
 
-  // 0→1 を切り替えるだけ（ちらつき少ない）
-  const [mix, setMix] = useState(1); // 1=front表示 / 0=back表示
+  // 1→0 を切り替えるだけ
+  const [mix, setMix] = useState(1);
   const [blurred, setBlurred] = useState(false);
+
+  // ✅ 初回：画像プリロード完了後に“ふわっ”と出す
   const [pageVisible, setPageVisible] = useState(false);
+  const [bgReady, setBgReady] = useState(false);
 
   const idxRef = useRef(0);
 
-  // ===== ランダム順キュー（Poemsと同じ思想）=====
+  // ランダム順キュー
   const orderRef = useRef<number[]>([]);
   const posRef = useRef(0);
   const recentRef = useRef<number[]>([]);
 
-  // ✅ 直近回避の上限を「画像枚数」に合わせて安全に丸める
-  // - len<=1 : 0
-  // - len==2 : 0（候補が1つしか残らないので、直近回避は意味が薄い）
-  // - len>=3 : AVOID_RECENT を最大 len-2 まで
   const effectiveRecentCap = (len: number) => {
     if (len <= 2) return 0;
     return Math.min(AVOID_RECENT, len - 2);
@@ -60,23 +58,19 @@ export default function HomeClient({ images }: { images: string[] }) {
     posRef.current = 0;
   };
 
-  // ✅ 直前（currentIdx）と同じは「絶対に出さない」＋直近は“できるだけ”避ける
   const pickNextIndex = (len: number, currentIdx: number) => {
     if (len <= 1) return 0;
 
     for (let attempt = 0; attempt < len * 4; attempt++) {
       if (posRef.current >= orderRef.current.length) buildNewOrder(len);
       const cand = orderRef.current[posRef.current++];
-
       if (cand !== currentIdx && !recentRef.current.includes(cand)) return cand;
     }
 
-    // recentが厳しい場合：recent外＆current外を探す
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx && !recentRef.current.includes(i)) return i;
     }
 
-    // 最終救済：とにかく current 以外（これで連続は絶対に起きない）
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx) return i;
     }
@@ -87,27 +81,41 @@ export default function HomeClient({ images }: { images: string[] }) {
   useEffect(() => {
     if (!images.length) return;
 
-    // 入場フェード
-    setPageVisible(false);
-    const p = window.setTimeout(() => setPageVisible(true), 30);
-
     const len = images.length;
 
-    // ランダム順キュー初期化
+    // 初回は“黒”から
+    setPageVisible(false);
+    setBgReady(false);
+
+    // キュー初期化
     buildNewOrder(len);
     recentRef.current = [];
 
-    // 初回ランダム（直前なしなので currentIdx=-1）
+    // 初回ランダム
     const start = pickNextIndex(len, -1);
     idxRef.current = start;
-    setFront(start);
-    setBack(start);
     pushRecent(start, len);
 
-    // 初回：ボケ→くっきり
-    setMix(1);
-    setBlurred(true);
-    requestAnimationFrame(() => requestAnimationFrame(() => setBlurred(false)));
+    // ✅ 先に1枚目をプリロードしてから表示開始（パッを消す）
+    const img = new Image();
+    img.src = images[start];
+
+    const onOk = () => {
+      setFront(start);
+      setBack(start);
+      setMix(1);
+
+      // 初回：ボケ→くっきり
+      setBlurred(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setBlurred(false)));
+
+      setBgReady(true);
+      // ふわっと入場（CSSトランジションが確実に走るように少し待つ）
+      window.setTimeout(() => setPageVisible(true), 30);
+    };
+
+    img.onload = onOk;
+    img.onerror = onOk;
 
     const interval = window.setInterval(() => {
       const next = pickNextIndex(len, idxRef.current);
@@ -115,38 +123,34 @@ export default function HomeClient({ images }: { images: string[] }) {
       // 次を裏に仕込む
       setBack(next);
 
-      // OUT（frontを0へ）
+      // OUT
       setMix(0);
 
-      // OUT完了後にfront確定→IN（mixを1へ）
+      // OUT完了後にfront確定→IN
       window.setTimeout(() => {
         setFront(next);
         idxRef.current = next;
         pushRecent(next, len);
 
-        // 仕込み（ボケ→くっきり）
         setBlurred(true);
 
-        // IN
         requestAnimationFrame(() => {
           setMix(1);
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => setBlurred(false))
-          );
+          requestAnimationFrame(() => requestAnimationFrame(() => setBlurred(false)));
         });
       }, FADE_OUT_MS);
     }, HOLD_MS);
 
     return () => {
-      window.clearTimeout(p);
       window.clearInterval(interval);
+      img.onload = null;
+      img.onerror = null;
     };
   }, [images]);
 
   const frontSrc = images[front] ?? "";
   const backSrc = images[back] ?? "";
 
-  // ★枠が出にくいマスク（角が立たない）
   const meltMask = {
     WebkitMaskImage:
       "radial-gradient(closest-side, rgba(0,0,0,1) 42%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0) 100%)",
@@ -154,11 +158,8 @@ export default function HomeClient({ images }: { images: string[] }) {
       "radial-gradient(closest-side, rgba(0,0,0,1) 42%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0) 100%)",
   };
 
-  // mixでIN/OUTを分ける
   const opacityTransition =
-    mix >= 1
-      ? `opacity ${FADE_IN_MS}ms ease-out`
-      : `opacity ${FADE_OUT_MS}ms ease-in`;
+    mix >= 1 ? `opacity ${FADE_IN_MS}ms ease-out` : `opacity ${FADE_OUT_MS}ms ease-in`;
 
   return (
     <main
@@ -173,106 +174,92 @@ export default function HomeClient({ images }: { images: string[] }) {
       }}
     >
       {/* 背景（同じ画像を拡大してボケ） */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          transform: "scale(1.25) translateZ(0)",
-          filter: "blur(20px) brightness(0.5)",
-          willChange: "opacity, transform, filter",
-        }}
-      >
-        {/* back */}
-        <img
-          src={backSrc}
-          alt=""
+      {bgReady && (
+        <div
           style={{
             position: "absolute",
             inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            transform: "scale(1.25) translateZ(0)",
+            filter: "blur(20px) brightness(0.5)",
+            willChange: "opacity, transform, filter",
           }}
-        />
-
-        {/* front */}
-        <img
-          src={frontSrc}
-          alt=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: mix,
-            transition: opacityTransition,
-            willChange: "opacity",
-          }}
-        />
-      </div>
+        >
+          <img
+            src={backSrc}
+            alt=""
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <img
+            src={frontSrc}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: mix,
+              transition: opacityTransition,
+              willChange: "opacity",
+            }}
+          />
+        </div>
+      )}
 
       {/* ベール */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.33)",
-        }}
-      />
+      <div aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.33)" }} />
 
       {/* 手前（2枚だけ） */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-      >
-        {/* back（薄く） */}
-        <img
-          src={backSrc}
-          alt=""
+      {bgReady && (
+        <div
           style={{
             position: "absolute",
-            maxWidth: "98vw",
-            maxHeight: "98svh",
-            width: "auto",
-            height: "auto",
-            objectFit: "contain",
-            opacity: 1 - mix,
-            transition: `opacity ${FADE_OUT_MS}ms ease-in`,
-            filter: "blur(10px)",
-            transform: "translateZ(0)",
-            willChange: "opacity, filter",
-            ...meltMask,
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
           }}
-        />
+        >
+          <img
+            src={backSrc}
+            alt=""
+            style={{
+              position: "absolute",
+              maxWidth: "98vw",
+              maxHeight: "98svh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              opacity: 1 - mix,
+              transition: `opacity ${FADE_OUT_MS}ms ease-in`,
+              filter: "blur(10px)",
+              transform: "translateZ(0)",
+              willChange: "opacity, filter",
+              ...meltMask,
+            }}
+          />
 
-        {/* front（ボケ→くっきり＋IN/OUT） */}
-        <img
-          src={frontSrc}
-          alt=""
-          style={{
-            position: "absolute",
-            maxWidth: "98vw",
-            maxHeight: "98svh",
-            width: "auto",
-            height: "auto",
-            objectFit: "contain",
-            opacity: mix,
-            transition: `${opacityTransition}, filter ${SHARPEN_MS}ms ease-out`,
-            filter: blurred ? "blur(10px)" : "blur(0px)",
-            transform: "translateZ(0)",
-            willChange: "opacity, filter",
-            ...meltMask,
-          }}
-        />
-      </div>
+          <img
+            src={frontSrc}
+            alt=""
+            style={{
+              position: "absolute",
+              maxWidth: "98vw",
+              maxHeight: "98svh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              opacity: mix,
+              transition: `${opacityTransition}, filter ${SHARPEN_MS}ms ease-out`,
+              filter: blurred ? "blur(10px)" : "blur(0px)",
+              transform: "translateZ(0)",
+              willChange: "opacity, filter",
+              ...meltMask,
+            }}
+          />
+        </div>
+      )}
 
       <style>{`
         @media (prefers-reduced-motion: reduce){
