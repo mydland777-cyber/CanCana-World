@@ -760,32 +760,61 @@ export default function HomeInteractive({
       )}
 
       {/* Logo overlay */}
-      {showLogo && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-            background: LOGO_BG,
-            display: "grid",
-            placeItems: "center",
-            pointerEvents: "all",
-          }}
-        >
-          <div style={{ display: "grid", placeItems: "center", gap: 10 }}>
-            <img
-              src={LOGO_SRC}
-              alt="logo"
-              style={{ width: "min(70vw, 420px)", height: "auto", display: "block" }}
-            />
-            {!logoLoaded && (
-              <div style={{ color: "rgba(255,255,255,0.70)", letterSpacing: "0.10em", fontSize: 12 }}>
-                Loading...
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+{showLogo && (
+  <>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 999999,
+        background: LOGO_BG,
+        display: "grid",
+        placeItems: "center",
+        pointerEvents: "all",
+        // ?logo=1 のときは固定表示（アニメ無し）
+        animation:
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("logo") === "1"
+            ? "none"
+            : `logoOverlay ${LOGO_TOTAL_MS}ms ease-in-out forwards`,
+      }}
+    >
+      <img
+        src={LOGO_SRC}
+        alt="logo"
+        style={{
+          width: "min(70vw, 420px)",
+          height: "auto",
+          display: "block",
+          animation:
+            typeof window !== "undefined" &&
+            new URLSearchParams(window.location.search).get("logo") === "1"
+              ? "none"
+              : `logoImg ${LOGO_TOTAL_MS}ms ease-in-out forwards`,
+        }}
+      />
+    </div>
+
+    <style>{`
+      @keyframes logoOverlay{
+        0%   { opacity: 0; }
+        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}% { opacity: 1; }
+        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      @keyframes logoImg{
+        0%   { opacity: 0; transform: translateY(6px) scale(0.985); filter: blur(6px); }
+        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+        100% { opacity: 0; transform: translateY(-2px) scale(1.01); filter: blur(3px); }
+      }
+      @media (prefers-reduced-motion: reduce){
+        div, img { animation: none !important; }
+      }
+    `}</style>
+  </>
+)}
+
 
       {/* Secret overlay */}
       {secretSrc && (
