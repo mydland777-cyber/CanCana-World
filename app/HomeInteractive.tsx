@@ -88,15 +88,12 @@ const LOGO_SRC = "/logo.png";
 const LOGO_ONCE_KEY = "cancana_logo_once_session_v3";
 const LOGO_BG = "#000";
 
-const LOGO_IN_MS = 1200;
-const LOGO_HOLD_MS = 1600;
-const LOGO_OUT_MS = 1200;
+const LOGO_IN_MS = 800;
+const LOGO_HOLD_MS = 1200;
+const LOGO_OUT_MS = 800;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
-// ✅ ロゴ後の真っ暗防止：Home背景が間に合わない時の保険（無限待ち回避）
-const HOME_BG_WAIT_MAX_MS = 6500;
-
-// ✅ Home表示は常にふわっと
+// ✅ Homeの「ふわっと」(ロゴ後/初回じゃない時も)
 const HOME_FADE_MS = 520;
 
 // ===== Profile =====
@@ -330,16 +327,16 @@ export default function HomeInteractive({
   luckyImages?: string[];
   skullImages?: string[];
 }) {
-  // ✅ 「戻るたびロゴ」対策：初期はロゴを描画しない（sessionStorage判定後に必要なら出す）
-  const [booted, setBooted] = useState(false);
-  const [homeReady, setHomeReady] = useState(false);
+  const [homeReady, setHomeReady] = useState(true);
 
+  // ✅ 初期は false（毎回ロゴが一瞬出るのを防ぐ）
   const [showLogo, setShowLogo] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const logoBootedRef = useRef(false);
 
-  // ✅ Homeは常にふわっと
-  const [contentVisible, setContentVisible] = useState(false);
+  // ✅ Homeの「ふわっと」
+  const [homeFade, setHomeFade] = useState(false);
+  const homeFadeTimerRef = useRef<number | null>(null);
 
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -365,10 +362,7 @@ export default function HomeInteractive({
 
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Home背景の最初の1枚をプリロード（ロゴ終了と同期）
-  const [homeBgPreloaded, setHomeBgPreloaded] = useState(false);
-  const logoDoneRef = useRef(false);
-  const hideTimeoutRef = useRef<number | null>(null);
+  const hideLogoTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -387,30 +381,14 @@ export default function HomeInteractive({
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
 
-  const firstBg = images?.[0] ?? "";
-
-  // ✅ Home背景先読み（1枚だけ）
-  useEffect(() => {
-    if (!images.length) {
-      setHomeBgPreloaded(true);
-      return;
-    }
-    setHomeBgPreloaded(false);
-
-    const img = new Image();
-    img.src = images[0];
-
-    const done = () => setHomeBgPreloaded(true);
-    img.onload = done;
-    img.onerror = done;
-    // @ts-ignore
-    if (img.complete) done();
-
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [images]);
+  const triggerHomeFade = () => {
+    setHomeFade(true);
+    if (homeFadeTimerRef.current) window.clearTimeout(homeFadeTimerRef.current);
+    homeFadeTimerRef.current = window.setTimeout(() => {
+      setHomeFade(false);
+      homeFadeTimerRef.current = null;
+    }, HOME_FADE_MS);
+  };
 
   // スクロールバー抑止
   useEffect(() => {
@@ -562,21 +540,13 @@ export default function HomeInteractive({
       if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
       if (msgResetRef.current) window.clearTimeout(msgResetRef.current);
 
-      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
+      if (homeFadeTimerRef.current) window.clearTimeout(homeFadeTimerRef.current);
+      homeFadeTimerRef.current = null;
+
+      if (hideLogoTimerRef.current) window.clearTimeout(hideLogoTimerRef.current);
+      hideLogoTimerRef.current = null;
     };
   }, []);
-
-  const revealHome = () => {
-    setShowLogo(false);
-    setHomeReady(true);
-
-    // ✅ ふわっと（確実にトリガーするため rAF）
-    setContentVisible(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setContentVisible(true));
-    });
-  };
 
   // ✅ ロゴ制御（?logo=1 で強制表示）
   useEffect(() => {
@@ -598,91 +568,47 @@ export default function HomeInteractive({
       already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
     } catch {}
 
-    // ✅ ここで「最初の描画方針」を確定（戻るたびロゴ防止）
+    setHomeReady(true);
+
+    // ✅ 既に見ていればロゴ無し＋ふわっとだけ
     if (already && !forceLogo) {
-      setBooted(true);
-      revealHome();
+      setShowLogo(false);
+      triggerHomeFade();
       return;
     }
 
-    // 初回（or 強制） → ロゴを出す。Homeは裏で読み込ませる
-    setBooted(true);
+    // ✅ 初回（or 強制）はロゴを出す（Homeは常に裏で描画）
     setShowLogo(true);
-    setHomeReady(false);
-    setContentVisible(false);
     setLogoLoaded(false);
-
-    logoDoneRef.current = false;
 
     const img = new Image();
     img.src = forceLogo ? `${LOGO_SRC}?v=${Date.now()}` : LOGO_SRC;
 
-    const tryFinish = () => {
-      if (!logoDoneRef.current) return;
+    const start = () => {
+      setLogoLoaded(true);
 
-      // ✅ 真っ暗対策：Homeの1枚目が読み込めたら抜ける
-      if (homeBgPreloaded) {
-        revealHome();
+      if (hideLogoTimerRef.current) window.clearTimeout(hideLogoTimerRef.current);
+      hideLogoTimerRef.current = window.setTimeout(() => {
+        setShowLogo(false);
+        triggerHomeFade();
         try {
           sessionStorage.setItem(LOGO_ONCE_KEY, "1");
         } catch {}
-        if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
-        hideTimeoutRef.current = null;
-      }
-    };
-
-    const onOk = () => {
-      setLogoLoaded(true);
-
-      window.setTimeout(() => {
-        logoDoneRef.current = true;
-        tryFinish();
-
-        // ✅ 保険：背景が極端に遅い時もいつかは抜ける（その場合でも下の固定背景が残るので真っ黒になりにくい）
-        if (!hideTimeoutRef.current) {
-          hideTimeoutRef.current = window.setTimeout(() => {
-            revealHome();
-            try {
-              sessionStorage.setItem(LOGO_ONCE_KEY, "1");
-            } catch {}
-            hideTimeoutRef.current = null;
-          }, HOME_BG_WAIT_MAX_MS);
-        }
+        hideLogoTimerRef.current = null;
       }, LOGO_TOTAL_MS);
     };
 
-    img.onload = onOk;
-    img.onerror = onOk;
-    if (img.complete) onOk();
+    img.onload = start;
+    img.onerror = start;
+    // @ts-ignore
+    if (img.complete) start();
 
     return () => {
       img.onload = null;
       img.onerror = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homeBgPreloaded]);
-
-  // ✅ ロゴ終了後に背景プリロードが「後から」完了しても必ず抜ける（黒フリーズ対策）
-useEffect(() => {
-  if (!showLogo) return;
-  if (!logoDoneRef.current) return;
-  if (!homeBgPreloaded) return;
-
-  setShowLogo(false);
-  setHomeReady(true);
-
-  setContentVisible(false);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => setContentVisible(true));
-  });
-
-  try {
-    sessionStorage.setItem(LOGO_ONCE_KEY, "1");
-  } catch {}
-
-  if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
-  hideTimeoutRef.current = null;
-}, [homeBgPreloaded, showLogo]);
+  }, []);
 
   const triggerSecret = async () => {
     if (localStorage.getItem(doneKey) === "1") return;
@@ -791,35 +717,32 @@ useEffect(() => {
         touchAction: "manipulation",
       }}
     >
-      {/* ✅ 真っ黒防止：固定の下地（HomeClientが別画像を選んでも最低限これが見える） */}
-      {firstBg && (
-        <div
-          aria-hidden
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 0,
-            backgroundImage: `url(${firstBg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            transform: "translateZ(0)",
-          }}
-        />
-      )}
+      {/* ✅ Homeは常に描画（黒フリーズ防止）。ロゴは上に被せるだけ */}
+      <HomeClient images={images} />
 
-      {/* ✅ HomeClient は最初からマウントして裏で読み込ませる（Home表示は常にふわっと） */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          opacity: booted && homeReady && contentVisible ? 1 : 0,
-          transition: `opacity ${HOME_FADE_MS}ms ease`,
-          willChange: "opacity",
-        }}
-      >
-        <HomeClient images={images} />
-      </div>
+      {/* ✅ Home ふわっと（ロゴ後/ロゴ無しでも） */}
+      {homeFade && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 60,
+              pointerEvents: "none",
+              background: "#000",
+              opacity: 1,
+              animation: `homeFade ${HOME_FADE_MS}ms ease-out forwards`,
+            }}
+          />
+          <style>{`
+            @keyframes homeFade{
+              0%{ opacity: 1; }
+              100%{ opacity: 0; }
+            }
+          `}</style>
+        </>
+      )}
 
       {msgViews.length > 0 && !showLogo && homeReady && (
         <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 25, pointerEvents: "none" }}>
@@ -1082,9 +1005,7 @@ useEffect(() => {
                   lineHeight: 1.4,
                 }}
               />
-              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
-                {validationError || " "}
-              </div>
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>{validationError || " "}</div>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
@@ -1171,15 +1092,7 @@ useEffect(() => {
                 {nameLines[0] ?? "CanCana"}
               </div>
               {nameLines[1] && (
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 650,
-                    lineHeight: 1.25,
-                    marginTop: 2,
-                    opacity: 0.92,
-                  }}
-                >
+                <div style={{ fontSize: 18, fontWeight: 650, lineHeight: 1.25, marginTop: 2, opacity: 0.92 }}>
                   {nameLines[1]}
                 </div>
               )}
