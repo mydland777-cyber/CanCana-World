@@ -96,6 +96,10 @@ const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 // ✅ Homeの「ふわっと」(ロゴ後/初回じゃない時も)
 const HOME_FADE_MS = 520;
 
+// ✅ Profile modal ふわっと
+const PROFILE_IN_MS = 260;
+const PROFILE_OUT_MS = 240;
+
 // ===== Profile =====
 const PROFILE_NAME = `CanCana（キャンカナ）
 役者名：星空　奏（ほしぞら　かな）`;
@@ -338,7 +342,10 @@ export default function HomeInteractive({
   const [homeFade, setHomeFade] = useState(false);
   const homeFadeTimerRef = useRef<number | null>(null);
 
+  // ✅ Profile ふわっと（open/close）
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileClosing, setProfileClosing] = useState(false);
+  const profileCloseTimerRef = useRef<number | null>(null);
 
   const [secretSrc, setSecretSrc] = useState<string | null>(null);
   const [secretVisible, setSecretVisible] = useState(false);
@@ -390,6 +397,24 @@ export default function HomeInteractive({
     }, HOME_FADE_MS);
   };
 
+  // ✅ Profile open/close helpers（ふわっと）
+  const openProfile = () => {
+    if (profileCloseTimerRef.current) window.clearTimeout(profileCloseTimerRef.current);
+    profileCloseTimerRef.current = null;
+    setProfileClosing(false);
+    setProfileOpen(true);
+  };
+  const closeProfile = () => {
+    if (!profileOpen) return;
+    setProfileClosing(true);
+    if (profileCloseTimerRef.current) window.clearTimeout(profileCloseTimerRef.current);
+    profileCloseTimerRef.current = window.setTimeout(() => {
+      setProfileOpen(false);
+      setProfileClosing(false);
+      profileCloseTimerRef.current = null;
+    }, PROFILE_OUT_MS);
+  };
+
   // スクロールバー抑止
   useEffect(() => {
     const html = document.documentElement;
@@ -409,6 +434,10 @@ export default function HomeInteractive({
       body.style.overflow = prevBodyOverflow;
       (html.style as any).overscrollBehavior = prevHtmlOverscroll;
       (body.style as any).overscrollBehavior = prevBodyOverscroll;
+
+      // ✅ Profile close timer cleanup
+      if (profileCloseTimerRef.current) window.clearTimeout(profileCloseTimerRef.current);
+      profileCloseTimerRef.current = null;
     };
   }, []);
 
@@ -545,6 +574,9 @@ export default function HomeInteractive({
 
       if (hideLogoTimerRef.current) window.clearTimeout(hideLogoTimerRef.current);
       hideLogoTimerRef.current = null;
+
+      if (profileCloseTimerRef.current) window.clearTimeout(profileCloseTimerRef.current);
+      profileCloseTimerRef.current = null;
     };
   }, []);
 
@@ -702,7 +734,7 @@ export default function HomeInteractive({
   };
 
   const blockTap = showLogo || !homeReady;
-  const uiBlocking = profileOpen || msgOpen || secretVisible;
+  const uiBlocking = profileOpen || profileClosing || msgOpen || secretVisible;
   const showProfileButton = homeReady && !showLogo && !secretSrc;
 
   const nameLines = PROFILE_NAME.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -717,7 +749,7 @@ export default function HomeInteractive({
         touchAction: "manipulation",
       }}
     >
-      {/* ✅ Homeは常に描画（黒フリーズ防止）。ロゴは上に被せるだけ */}
+      {/* ✅ Homeは常に描画（黒フリーズ防止）。ロゴは上に被さるだけ */}
       <HomeClient images={images} />
 
       {/* ✅ Home ふわっと（ロゴ後/ロゴ無しでも） */}
@@ -808,8 +840,70 @@ export default function HomeInteractive({
                 0 0 0 3px rgba(255,255,255,0.18),
                 0 8px 30px rgba(255,255,255,0.12);
             }
+
+            @keyframes profileBackdropIn{
+              0%{ opacity: 0; }
+              100%{ opacity: 1; }
+            }
+            @keyframes profileBackdropOut{
+              0%{ opacity: 1; }
+              100%{ opacity: 0; }
+            }
+            @keyframes profileCardIn{
+              0%{ opacity: 0; transform: translateY(8px) scale(0.995); }
+              100%{ opacity: 1; transform: translateY(0px) scale(1); }
+            }
+            @keyframes profileCardOut{
+              0%{ opacity: 1; transform: translateY(0px) scale(1); }
+              100%{ opacity: 0; transform: translateY(6px) scale(0.996); }
+            }
           `}</style>
         </div>
+      )}
+
+      {/* uiBtn CSS（msgViewsが0でも効く） + profile animation keyframes */}
+      {msgViews.length === 0 && (
+        <style>{`
+          .uiBtn{
+            transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
+            will-change: transform, box-shadow;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+          }
+          .uiBtn:hover{
+            background: rgba(255,255,255,0.08) !important;
+            border-color: rgba(255,255,255,0.18) !important;
+            box-shadow:
+              0 0 0 1px rgba(255,255,255,0.18),
+              0 8px 30px rgba(255,255,255,0.12);
+            transform: translateY(-1px);
+            color: rgba(255,255,255,0.98) !important;
+          }
+          .uiBtn:active{ transform: translateY(0px); }
+          .uiBtn:focus-visible{
+            outline: none;
+            box-shadow:
+              0 0 0 3px rgba(255,255,255,0.18),
+              0 8px 30px rgba(255,255,255,0.12);
+          }
+
+          @keyframes profileBackdropIn{
+            0%{ opacity: 0; }
+            100%{ opacity: 1; }
+          }
+          @keyframes profileBackdropOut{
+            0%{ opacity: 1; }
+            100%{ opacity: 0; }
+          }
+          @keyframes profileCardIn{
+            0%{ opacity: 0; transform: translateY(8px) scale(0.995); }
+            100%{ opacity: 1; transform: translateY(0px) scale(1); }
+          }
+          @keyframes profileCardOut{
+            0%{ opacity: 1; transform: translateY(0px) scale(1); }
+            100%{ opacity: 0; transform: translateY(6px) scale(0.996); }
+          }
+        `}</style>
       )}
 
       <HeartsLayer enabled={!blockTap && !uiBlocking} onTap={blockTap || uiBlocking ? () => {} : onTap} />
@@ -819,7 +913,7 @@ export default function HomeInteractive({
           type="button"
           className="uiBtn"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setProfileOpen(true)}
+          onClick={openProfile}
           style={{
             position: "fixed",
             left: 14,
@@ -1053,7 +1147,7 @@ export default function HomeInteractive({
         </div>
       )}
 
-      {/* Profile modal */}
+      {/* Profile modal（ふわっと） */}
       {profileOpen && (
         <div
           role="dialog"
@@ -1070,6 +1164,9 @@ export default function HomeInteractive({
             display: "grid",
             placeItems: "center",
             padding: 18,
+            animation: profileClosing
+              ? `profileBackdropOut ${PROFILE_OUT_MS}ms ease forwards`
+              : `profileBackdropIn ${PROFILE_IN_MS}ms ease forwards`,
           }}
         >
           <div
@@ -1085,6 +1182,9 @@ export default function HomeInteractive({
               boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
               padding: 16,
               color: "rgba(255,255,255,0.92)",
+              animation: profileClosing
+                ? `profileCardOut ${PROFILE_OUT_MS}ms ease forwards`
+                : `profileCardIn ${PROFILE_IN_MS}ms ease forwards`,
             }}
           >
             <div style={{ letterSpacing: "0.08em" }}>
@@ -1106,7 +1206,7 @@ export default function HomeInteractive({
               <button
                 type="button"
                 className="uiBtn"
-                onClick={() => setProfileOpen(false)}
+                onClick={closeProfile}
                 style={{
                   padding: "10px 12px",
                   borderRadius: 12,
@@ -1149,6 +1249,23 @@ export default function HomeInteractive({
           box-shadow:
             0 0 0 3px rgba(255,255,255,0.18),
             0 8px 30px rgba(255,255,255,0.12);
+        }
+
+        @keyframes profileBackdropIn{
+          0%{ opacity: 0; }
+          100%{ opacity: 1; }
+        }
+        @keyframes profileBackdropOut{
+          0%{ opacity: 1; }
+          100%{ opacity: 0; }
+        }
+        @keyframes profileCardIn{
+          0%{ opacity: 0; transform: translateY(8px) scale(0.995); }
+          100%{ opacity: 1; transform: translateY(0px) scale(1); }
+        }
+        @keyframes profileCardOut{
+          0%{ opacity: 1; transform: translateY(0px) scale(1); }
+          100%{ opacity: 0; transform: translateY(6px) scale(0.996); }
         }
       `}</style>
     </div>
