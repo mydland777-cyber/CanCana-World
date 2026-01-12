@@ -11,7 +11,6 @@ const BG_FADE_MS = 2600;
 const TEXT_IN_DELAY = 120;
 
 // ランダム制御（「できるだけ避ける」個数）
-// ★おすすめ：5〜8くらい（“ランダム感”が残りやすい）
 const AVOID_RECENT = 7;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -24,11 +23,12 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function PoemsClient({ items }: { items: PoemItem[] }) {
-  const [front, setFront] = useState(0);
-  const [back, setBack] = useState(0);
+  // ✅ 初期チラ見え防止：-1で開始（準備完了まで描画しない）
+  const [front, setFront] = useState(-1);
+  const [back, setBack] = useState(-1);
   const [showFront, setShowFront] = useState(true);
 
-  const [textIndex, setTextIndex] = useState(0);
+  const [textIndex, setTextIndex] = useState(-1);
   const [textVisible, setTextVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
 
@@ -43,6 +43,10 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     mq.addEventListener?.("change", apply);
     return () => mq.removeEventListener?.("change", apply);
   }, []);
+
+  // ✅ 入場直後の誤クリック（移動タップが残る）対策：少しだけクリック無効
+  const clickEnabledRef = useRef(false);
+  const clickEnableTimerRef = useRef<number | null>(null);
 
   // タイマー（自動）管理
   const autoTimerRef = useRef<number | null>(null);
@@ -63,10 +67,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const posRef = useRef(0);
   const recentRef = useRef<number[]>([]);
 
-  // ✅ 直近回避の上限は「作品数」に合わせて安全に丸める
-  // - len<=1 : 0
-  // - len==2 : 0（候補が1つしか残らないので、直近回避は意味が薄い）
-  // - len>=3 : AVOID_RECENT を最大 len-2 まで
   const effectiveRecentCap = (len: number) => {
     if (len <= 2) return 0;
     return Math.min(AVOID_RECENT, len - 2);
@@ -86,13 +86,9 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     posRef.current = 0;
   };
 
-  // ✅ ここが改良点：
-  // 1) 直前（currentIdx）と同じは「絶対に出さない」
-  // 2) その上で recent を「できるだけ避ける」
   const pickNextIndex = (len: number, currentIdx: number) => {
     if (len <= 1) return 0;
 
-    // できるだけ recent を避けつつ、最低でも currentIdx だけは避ける
     for (let attempt = 0; attempt < len * 4; attempt++) {
       if (posRef.current >= orderRef.current.length) buildNewOrder(len);
       const cand = orderRef.current[posRef.current++];
@@ -100,12 +96,10 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       if (cand !== currentIdx && !recentRef.current.includes(cand)) return cand;
     }
 
-    // recent が厳しい場合：recent外＆current外を探す
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx && !recentRef.current.includes(i)) return i;
     }
 
-    // さらに救済：とにかく current 以外を返す（これで連続は絶対に起きない）
     for (let i = 0; i < len; i++) {
       if (i !== currentIdx) return i;
     }
@@ -120,29 +114,48 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     switchingRef.current = false;
     clearAuto();
 
+    // クリック無効（入場直後の“パパっ”防止）
+    clickEnabledRef.current = false;
+    if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
+    clickEnableTimerRef.current = window.setTimeout(() => {
+      clickEnabledRef.current = true;
+      clickEnableTimerRef.current = null;
+    }, 650);
+
     buildNewOrder(items.length);
     recentRef.current = [];
 
     const first = pickNextIndex(items.length, -1);
     pushRecent(first, items.length);
 
-    setFront(first);
-    setBack(first);
+    // ✅ 先に“未表示”状態を作ってから、確定値を入れる（初期チラ見えゼロ）
+    setFront(-1);
+    setBack(-1);
+    setTextIndex(-1);
     setShowFront(true);
-    setTextIndex(first);
-
-    setPageVisible(false);
     setTextVisible(false);
+    setPageVisible(false);
+
+    const t0 = window.setTimeout(() => {
+      setFront(first);
+      setBack(first);
+      setShowFront(true);
+      setTextIndex(first);
+    }, 0);
 
     const t1 = window.setTimeout(() => setPageVisible(true), 30);
     const t2 = window.setTimeout(() => setTextVisible(true), 520);
     const t3 = window.setTimeout(() => scheduleAuto(), 650);
 
     return () => {
+      window.clearTimeout(t0);
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
       clearAuto();
+      if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
+      clickEnableTimerRef.current = null;
+      clickEnabledRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
@@ -151,13 +164,12 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const stepNext = (reason: "auto" | "click") => {
     if (items.length <= 1) return;
     if (switchingRef.current) return;
+    if (textIndex < 0) return; // ✅ 初期化前は進めない
 
     switchingRef.current = true;
     clearAuto();
 
     const len = items.length;
-
-    // ✅ 直前と同じを絶対に避ける（＋できるだけ直近回避）
     const next = pickNextIndex(len, textIndex);
 
     // 文字アウト
@@ -191,13 +203,17 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
   // アンマウント時にタイマー掃除
   useEffect(() => {
-    return () => clearAuto();
+    return () => {
+      clearAuto();
+      if (clickEnableTimerRef.current) window.clearTimeout(clickEnableTimerRef.current);
+      clickEnableTimerRef.current = null;
+      clickEnabledRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const current = items[textIndex];
+  const current = textIndex >= 0 ? items[textIndex] : null;
 
-  // ★スマホ/PCで別テーブル（長文ほど小さく）
   const fontSize = useMemo(() => {
     const len = current?.text?.length ?? 0;
 
@@ -216,7 +232,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     }
   }, [current?.text, isMobile]);
 
-  // ★行間もスマホ/PCで別テーブル：左がスマホ行間、右がPC行間
   const lineHeight = useMemo(() => {
     return isMobile ? 1.6 : 2.15;
   }, [isMobile]);
@@ -229,10 +244,15 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     objectFit: "cover" as const,
   };
 
+  const ready = items.length > 0 && front >= 0 && back >= 0 && textIndex >= 0 && !!current;
+
   return (
     <main
       className={chalkJP.className}
-      onClick={() => stepNext("click")}
+      onClick={() => {
+        if (!clickEnabledRef.current) return;
+        stepNext("click");
+      }}
       style={{
         position: "relative",
         width: "100vw",
@@ -254,7 +274,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
         <div style={{ color: "#fff", opacity: 0.7 }}>
           poems がありません（photo.jpg と text.md を確認）
         </div>
-      ) : (
+      ) : !ready ? null : (
         <>
           {/* 背景 */}
           <div
@@ -371,7 +391,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
                            filter ${textVisible ? 1600 : TEXT_OUT_MS}ms ease`,
             }}
           >
-            {current.text}
+            {current!.text}
           </div>
 
           <style>{`
