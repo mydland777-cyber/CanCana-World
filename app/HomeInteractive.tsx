@@ -1023,17 +1023,18 @@ export default function HomeInteractive({
                   setValidationError("");
                 }}
                 style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "rgba(255,255,255,0.86)",
-                  letterSpacing: "0.10em",
-                  fontSize: 13,
-                }}
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "rgba(255,255,255,0.86)",
+  letterSpacing: "0.10em",
+  fontSize: 13,
+}}
+
               >
                 Cancel
-              </button>
+              </button> 
 
               <button
                 type="button"
@@ -1041,18 +1042,20 @@ export default function HomeInteractive({
                 disabled={!msgText.trim() || Boolean(validationError)}
                 onClick={postMessage}
                 style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  color: "rgba(255,255,255,0.92)",
-                  letterSpacing: "0.10em",
-                  fontSize: 13,
-                  opacity: !msgText.trim() || Boolean(validationError) ? 0.6 : 1,
-                }}
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.18)",
+  color: "rgba(255,255,255,0.92)",
+  letterSpacing: "0.10em",
+  fontSize: 13,
+  opacity: !msgText.trim() || Boolean(validationError) ? 0.6 : 1,
+}}
+
               >
-                Post
+               Post
               </button>
+
             </div>
           </div>
         </div>
