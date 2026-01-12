@@ -145,7 +145,7 @@ export default function SiteMenu() {
           /* ✅ a/link → button 化しても見た目を変えない */
           appearance: none;
           background: transparent;
-          border: 1px solid transparent;
+          border: 1px solid transparent; /* ←通常は透明のまま */
           cursor: pointer;
 
           transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease, border-color 220ms ease, color 200ms ease, opacity 200ms ease;
@@ -154,10 +154,9 @@ export default function SiteMenu() {
         }
         .menuItem:hover{
           background: rgba(255,255,255,0.08);
-          border-color: rgba(255,255,255,0.18);
+          border-color: transparent; /* ✅ 枠を出さない */
           box-shadow:
-            0 0 0 1px rgba(255,255,255,0.18),
-            0 8px 30px rgba(255,255,255,0.12);
+            0 8px 30px rgba(255,255,255,0.12); /* ✅ “枠”の1px光輪を消して、柔らかい発光だけ残す */
           transform: translateY(-1px);
           color: rgba(255,255,255,0.98);
         }
@@ -205,10 +204,9 @@ export default function SiteMenu() {
           }
           .hamburger:hover{
             background: rgba(255,255,255,0.08);
-            border-color: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.06); /* ✅ 枠色は変えない（ほぼ同じ） */
             box-shadow:
-              0 0 0 1px rgba(255,255,255,0.18),
-              0 8px 30px rgba(255,255,255,0.12);
+              0 8px 30px rgba(255,255,255,0.12); /* ✅ “枠”の1px光輪を消す */
             transform: translateY(-1px);
           }
           .hamburger:active{
@@ -264,6 +262,8 @@ export default function SiteMenu() {
           }
           .menuItem:hover{
             background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.08); /* ✅ SPは枠維持（もともとタイル感） */
+            box-shadow: none; /* ✅ SPで枠だけ消したい場合はここも調整可 */
           }
         }
       `}</style>
