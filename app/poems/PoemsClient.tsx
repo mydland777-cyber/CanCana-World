@@ -32,7 +32,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
   const [textVisible, setTextVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
 
-  // ✅ 初回背景だけ「プリロード完了→フェードイン」
+  // ✅ 初回背景だけ「必ず 0→1 を踏む」
   const [bgReady, setBgReady] = useState(false);
 
   const switchingRef = useRef(false);
@@ -80,7 +80,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       };
       img.onload = done;
       img.onerror = done;
-      // cacheヒット
       // @ts-ignore
       if (img.complete) done();
     });
@@ -160,8 +159,9 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
     const t1 = window.setTimeout(() => setPageVisible(true), 30);
 
-    // ✅ 1枚目をプリロードしてから表示開始
     let cancelled = false;
+
+    // ✅ 1枚目をプリロードしてから表示開始
     preload(items[first].image).then(() => {
       if (cancelled) return;
 
@@ -170,10 +170,17 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
       setShowFront(true);
       setTextIndex(first);
 
-      setBgReady(true);
+      // ✅ ここが核心：必ず「opacity=0の描画」を1回挟む（Home→Poemsでも安定）
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          setBgReady(true);
+        });
+      });
 
-      window.setTimeout(() => setTextVisible(true), 220);
-      window.setTimeout(() => scheduleAuto(), 420);
+      // テキストは背景が出始めてから
+      window.setTimeout(() => setTextVisible(true), 260);
+      window.setTimeout(() => scheduleAuto(), 460);
     });
 
     return () => {
@@ -199,30 +206,25 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     const len = items.length;
     const next = pickNextIndex(len, textIndex);
 
-    // ✅ 次の画像を先に読み込む（“パッ”防止の核心）
+    // ✅ 次の画像を先に読み込む
     const p = preload(items[next].image);
 
-    // 文字アウト開始
     setTextVisible(false);
 
     window.setTimeout(async () => {
       await p;
 
-      // 背景クロスフェード開始
       setBack(next);
       setShowFront(false);
 
       window.setTimeout(() => {
-        // 背景確定
         setFront(next);
         setShowFront(true);
 
-        // テキスト差し替え
         setTextIndex(next);
         pushRecent(next, len);
 
         window.setTimeout(() => {
-          // 文字イン
           setTextVisible(true);
           switchingRef.current = false;
           scheduleAuto();
