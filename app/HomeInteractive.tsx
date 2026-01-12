@@ -771,12 +771,11 @@ export default function HomeInteractive({
         display: "grid",
         placeItems: "center",
         pointerEvents: "all",
-        // ?logo=1 のときは固定表示（アニメ無し）
         animation:
           typeof window !== "undefined" &&
           new URLSearchParams(window.location.search).get("logo") === "1"
             ? "none"
-            : `logoOverlay ${LOGO_TOTAL_MS}ms ease-in-out forwards`,
+            : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
       }}
     >
       <img
@@ -786,35 +785,52 @@ export default function HomeInteractive({
           width: "min(70vw, 420px)",
           height: "auto",
           display: "block",
+          willChange: "filter, opacity, transform",
           animation:
             typeof window !== "undefined" &&
             new URLSearchParams(window.location.search).get("logo") === "1"
               ? "none"
-              : `logoImg ${LOGO_TOTAL_MS}ms ease-in-out forwards`,
+              : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
         }}
       />
     </div>
 
     <style>{`
       @keyframes logoOverlay{
-        0%   { opacity: 0; }
-        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}% { opacity: 1; }
-        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}% { opacity: 1; }
-        100% { opacity: 0; }
+        0%{opacity:1}
+        100%{opacity:1}
       }
-      @keyframes logoImg{
-        0%   { opacity: 0; transform: translateY(6px) scale(0.985); filter: blur(6px); }
-        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
-        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
-        100% { opacity: 0; transform: translateY(-2px) scale(1.01); filter: blur(3px); }
+
+      /* ガウス：400px → 0px → 500px */
+      @keyframes logoGaussian{
+        0%{
+          opacity: 0;
+          filter: blur(400px);
+          transform: scale(1.02);
+        }
+        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
+          opacity: 1;
+          filter: blur(0px);
+          transform: scale(1);
+        }
+        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
+          opacity: 1;
+          filter: blur(0px);
+          transform: scale(1);
+        }
+        100%{
+          opacity: 0;
+          filter: blur(500px);
+          transform: scale(1.03);
+        }
       }
+
       @media (prefers-reduced-motion: reduce){
-        div, img { animation: none !important; }
+        *{ animation:none !important; }
       }
     `}</style>
   </>
 )}
-
 
       {/* Secret overlay */}
       {secretSrc && (
