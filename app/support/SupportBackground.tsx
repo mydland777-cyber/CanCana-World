@@ -28,6 +28,7 @@ export default function SupportBackground({ images, count = 18 }: Props) {
   if (!images?.length) return null;
 
   const seed = useMemo(() => hashString(images.join("|") + "|support"), [images]);
+
   const tiles = useMemo(() => {
     const rnd = mulberry32(seed);
     return Array.from({ length: Math.min(count, images.length * 3) }).map((_, i) => {
@@ -86,9 +87,9 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         if (img.complete) done();
       });
 
-    // ① 少数だけ先に読む → 出す
     Promise.all(fastSrcList.map(preloadOne)).then(() => {
       if (cancelled) return;
+
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (cancelled) return;
@@ -96,7 +97,6 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         });
       });
 
-      // ② 余力で残りを読む → 追加分をふわっと足す
       const kick = () => {
         Promise.all(slowSrcList.map(preloadOne)).then(() => {
           if (cancelled) return;
@@ -109,14 +109,9 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         });
       };
 
-      // idleがあれば使う（なければ少し遅らせる）
-      // @ts-ignore
-      if (typeof requestIdleCallback === "function") {
-        // @ts-ignore
-        requestIdleCallback(kick, { timeout: 1200 });
-      } else {
-        window.setTimeout(kick, 450);
-      }
+      const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void, opts?: any) => any);
+      if (typeof ric === "function") ric(kick, { timeout: 1200 });
+      else window.setTimeout(kick, 450);
     });
 
     return () => {
@@ -136,7 +131,7 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         zIndex: 0,
       }}
     >
-      {/* 先に出すレイヤー（少数） */}
+      {/* 敷き詰めレイヤー（先に出す） */}
       <div
         style={{
           position: "absolute",
@@ -148,15 +143,13 @@ export default function SupportBackground({ images, count = 18 }: Props) {
           willChange: "opacity",
         }}
       >
-        {fastTiles.map((t, idx) => (
+        {fastTiles.map((t) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={t.key}
             src={t.src}
             alt=""
-            // ✅ 最初の数枚だけ優先（解像度はそのまま）
-            fetchPriority={idx < 2 ? "high" : "auto"}
-            loading={idx < 2 ? "eager" : "lazy"}
+            loading="eager"
             decoding="async"
             style={{
               position: "absolute",
@@ -173,7 +166,7 @@ export default function SupportBackground({ images, count = 18 }: Props) {
         ))}
       </div>
 
-      {/* 後から足すレイヤー（残り全部） */}
+      {/* 敷き詰めレイヤー（後から足す） */}
       {slowTiles.length > 0 && (
         <div
           style={{
@@ -213,4 +206,30 @@ export default function SupportBackground({ images, count = 18 }: Props) {
       {/* 周辺減光 */}
       <div
         style={{
-          position: "
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.72) 100%)",
+        }}
+      />
+
+      {/* 霞（ぴかぴか防止：fastReady後にふわっと） */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(255,255,255,0.06)",
+          mixBlendMode: "screen",
+          opacity: fastReady ? 0.18 : 0,
+          transition: "opacity 900ms ease",
+        }}
+      />
+
+      <style>{`
+        @media (prefers-reduced-motion: reduce){
+          *{ transition:none !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
