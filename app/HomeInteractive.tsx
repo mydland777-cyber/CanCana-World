@@ -1,3 +1,4 @@
+// app/HomeInteractive.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
@@ -94,6 +95,9 @@ const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
 // ✅ ロゴ後の真っ暗防止：Home背景が間に合わない時の保険（無限待ち回避）
 const HOME_BG_WAIT_MAX_MS = 6500;
+
+// ✅ Home表示は常にふわっと
+const HOME_FADE_MS = 520;
 
 // ===== Profile =====
 const PROFILE_NAME = `CanCana（キャンカナ）
@@ -326,11 +330,16 @@ export default function HomeInteractive({
   luckyImages?: string[];
   skullImages?: string[];
 }) {
+  // ✅ 「戻るたびロゴ」対策：初期はロゴを描画しない（sessionStorage判定後に必要なら出す）
+  const [booted, setBooted] = useState(false);
   const [homeReady, setHomeReady] = useState(false);
 
-  const [showLogo, setShowLogo] = useState(true);
+  const [showLogo, setShowLogo] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const logoBootedRef = useRef(false);
+
+  // ✅ Homeは常にふわっと
+  const [contentVisible, setContentVisible] = useState(false);
 
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -359,7 +368,6 @@ export default function HomeInteractive({
   // ✅ Home背景の最初の1枚をプリロード（ロゴ終了と同期）
   const [homeBgPreloaded, setHomeBgPreloaded] = useState(false);
   const logoDoneRef = useRef(false);
-  const pendingHideRef = useRef(false);
   const hideTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -378,6 +386,8 @@ export default function HomeInteractive({
   const localMsgKey = `cancana_msgs_24h`;
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
+
+  const firstBg = images?.[0] ?? "";
 
   // ✅ Home背景先読み（1枚だけ）
   useEffect(() => {
@@ -557,6 +567,17 @@ export default function HomeInteractive({
     };
   }, []);
 
+  const revealHome = () => {
+    setShowLogo(false);
+    setHomeReady(true);
+
+    // ✅ ふわっと（確実にトリガーするため rAF）
+    setContentVisible(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setContentVisible(true));
+    });
+  };
+
   // ✅ ロゴ制御（?logo=1 で強制表示）
   useEffect(() => {
     if (logoBootedRef.current) return;
@@ -577,51 +598,53 @@ export default function HomeInteractive({
       already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
     } catch {}
 
+    // ✅ ここで「最初の描画方針」を確定（戻るたびロゴ防止）
     if (already && !forceLogo) {
-      setShowLogo(false);
-      setHomeReady(true);
+      setBooted(true);
+      revealHome();
       return;
     }
 
+    // 初回（or 強制） → ロゴを出す。Homeは裏で読み込ませる
+    setBooted(true);
     setShowLogo(true);
     setHomeReady(false);
+    setContentVisible(false);
     setLogoLoaded(false);
 
     logoDoneRef.current = false;
-    pendingHideRef.current = false;
 
     const img = new Image();
     img.src = forceLogo ? `${LOGO_SRC}?v=${Date.now()}` : LOGO_SRC;
 
     const tryFinish = () => {
       if (!logoDoneRef.current) return;
-      if (!homeBgPreloaded) return;
 
-      setShowLogo(false);
-      setHomeReady(true);
-      try {
-        sessionStorage.setItem(LOGO_ONCE_KEY, "1");
-      } catch {}
-
-      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-      pendingHideRef.current = false;
+      // ✅ 真っ暗対策：Homeの1枚目が読み込めたら抜ける
+      if (homeBgPreloaded) {
+        revealHome();
+        try {
+          sessionStorage.setItem(LOGO_ONCE_KEY, "1");
+        } catch {}
+        if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
     };
 
     const onOk = () => {
       setLogoLoaded(true);
-      if (forceLogo) return;
 
       window.setTimeout(() => {
         logoDoneRef.current = true;
-        pendingHideRef.current = true;
         tryFinish();
 
-        // ✅ 保険：背景が極端に遅い時もいつかは抜ける
+        // ✅ 保険：背景が極端に遅い時もいつかは抜ける（その場合でも下の固定背景が残るので真っ黒になりにくい）
         if (!hideTimeoutRef.current) {
           hideTimeoutRef.current = window.setTimeout(() => {
-            setShowLogo(false);
-            setHomeReady(true);
+            revealHome();
+            try {
+              sessionStorage.setItem(LOGO_ONCE_KEY, "1");
+            } catch {}
             hideTimeoutRef.current = null;
           }, HOME_BG_WAIT_MAX_MS);
         }
@@ -746,8 +769,35 @@ export default function HomeInteractive({
         touchAction: "manipulation",
       }}
     >
-      {/* ✅ HomeClient を最初からマウントして裏で読み込ませる（ロゴ中は上に被さるだけ） */}
-      <HomeClient images={images} />
+      {/* ✅ 真っ黒防止：固定の下地（HomeClientが別画像を選んでも最低限これが見える） */}
+      {firstBg && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 0,
+            backgroundImage: `url(${firstBg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            transform: "translateZ(0)",
+          }}
+        />
+      )}
+
+      {/* ✅ HomeClient は最初からマウントして裏で読み込ませる（Home表示は常にふわっと） */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          opacity: booted && homeReady && contentVisible ? 1 : 0,
+          transition: `opacity ${HOME_FADE_MS}ms ease`,
+          willChange: "opacity",
+        }}
+      >
+        <HomeClient images={images} />
+      </div>
 
       {msgViews.length > 0 && !showLogo && homeReady && (
         <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 25, pointerEvents: "none" }}>
@@ -1010,7 +1060,9 @@ export default function HomeInteractive({
                   lineHeight: 1.4,
                 }}
               />
-              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>{validationError || " "}</div>
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
+                {validationError || " "}
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "flex-end" }}>
@@ -1023,18 +1075,17 @@ export default function HomeInteractive({
                   setValidationError("");
                 }}
                 style={{
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  color: "rgba(255,255,255,0.86)",
-  letterSpacing: "0.10em",
-  fontSize: 13,
-}}
-
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.86)",
+                  letterSpacing: "0.10em",
+                  fontSize: 13,
+                }}
               >
                 Cancel
-              </button> 
+              </button>
 
               <button
                 type="button"
@@ -1042,20 +1093,18 @@ export default function HomeInteractive({
                 disabled={!msgText.trim() || Boolean(validationError)}
                 onClick={postMessage}
                 style={{
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "rgba(255,255,255,0.12)",
-  border: "1px solid rgba(255,255,255,0.18)",
-  color: "rgba(255,255,255,0.92)",
-  letterSpacing: "0.10em",
-  fontSize: 13,
-  opacity: !msgText.trim() || Boolean(validationError) ? 0.6 : 1,
-}}
-
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  color: "rgba(255,255,255,0.92)",
+                  letterSpacing: "0.10em",
+                  fontSize: 13,
+                  opacity: !msgText.trim() || Boolean(validationError) ? 0.6 : 1,
+                }}
               >
-               Post
+                Post
               </button>
-
             </div>
           </div>
         </div>
@@ -1100,7 +1149,15 @@ export default function HomeInteractive({
                 {nameLines[0] ?? "CanCana"}
               </div>
               {nameLines[1] && (
-                <div style={{ fontSize: 18, fontWeight: 650, lineHeight: 1.25, marginTop: 2, opacity: 0.92 }}>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 650,
+                    lineHeight: 1.25,
+                    marginTop: 2,
+                    opacity: 0.92,
+                  }}
+                >
                   {nameLines[1]}
                 </div>
               )}
