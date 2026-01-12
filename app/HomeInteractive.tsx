@@ -765,6 +765,26 @@ export default function HomeInteractive({
         touchAction: "manipulation",
       }}
     >
+{/* HI DEBUG (TEMP) */}
+{typeof window !== "undefined" && (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      zIndex: 2147483647,
+      background: "#ff00ff",
+      color: "#fff",
+      padding: "8px 10px",
+      fontSize: 14,
+      fontWeight: 900,
+      letterSpacing: "0.06em",
+      pointerEvents: "none",
+    }}
+  >
+    HI DEBUG search={window.location.search}
+  </div>
+)}
       {homeReady && <HomeClient images={images} />}
 
       {/* Messages overlay�E�Eixed + %座標で“確実にランダム配置”！E*/}
