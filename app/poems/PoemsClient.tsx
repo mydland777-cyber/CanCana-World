@@ -14,6 +14,10 @@ const TEXT_IN_DELAY = 120;
 // ランダム制御
 const AVOID_RECENT = 7;
 
+// ✅ 画像プリロードを「待ちすぎない」ための上限（これがないと切替が止まる）
+const PRELOAD_MAX_MS = 1200;
+const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -162,8 +166,8 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
     let cancelled = false;
 
-    // ✅ 1枚目をプリロードしてから表示開始
-    preload(items[first].image).then(() => {
+    // ✅ 1枚目をプリロードしてから表示開始（ただし待ちすぎない）
+    Promise.race([preload(items[first].image), wait(PRELOAD_MAX_MS)]).then(() => {
       if (cancelled) return;
 
       setFront(first);
@@ -207,13 +211,14 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     const len = items.length;
     const next = pickNextIndex(len, textIndex);
 
-    // ✅ 次の画像を先に読み込む
+    // ✅ 次の画像を先に読み込む（でも待ちすぎない）
     const p = preload(items[next].image);
 
     setTextVisible(false);
 
     window.setTimeout(async () => {
-      await p;
+      // ✅ ここが核心：プリロードが遅くても最大 PRELOAD_MAX_MS で切替に進む
+      await Promise.race([p, wait(PRELOAD_MAX_MS)]);
 
       setBack(next);
       setShowFront(false);
@@ -234,7 +239,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     }, TEXT_OUT_MS);
   };
 
-  // ✅ ここが追加：textIndexが変わったら「必ず」自動タイマーを再セット（止まり対策）
+  // ✅ textIndexが変わったら「必ず」自動タイマーを再セット
   useEffect(() => {
     if (items.length <= 1) return;
     if (textIndex < 0) return;
@@ -243,7 +248,7 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textIndex, items.length]);
 
-  // ✅ ここが追加：タブ復帰/フォーカス復帰で再開（モバイルで止まる対策）
+  // ✅ タブ復帰/フォーカス復帰で再開（モバイルで止まる対策）
   useEffect(() => {
     const onResume = () => {
       if (items.length <= 1) return;
