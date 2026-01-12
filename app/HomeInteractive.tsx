@@ -8,41 +8,41 @@ const TAP_GOAL = 1000; // Secret用
 const SECRET_SHOW_MS = 12000;
 const SKULL_RATE = 0.7;
 
-// ===== Message（共有＋24h＋禁止ワード）=====
-const MESSAGE_GOAL = 100; // ★100タップごとにモーダルを出す（何回でも）
-const MSG_MAX_LEN = 30; // ★投稿は30文字まで（投稿上限）
+// ===== Message�E��E有！E4h�E�禁止ワード！E====
+const MESSAGE_GOAL = 100; // ☁E00タチE�Eごとにモーダルを�Eす（何回でも！E
+const MSG_MAX_LEN = 30; // ☁E��稿は30斁E��まで�E�投稿上限�E�E
 const MSG_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
-const MSG_FETCH_MS = 15000; // 共有メッセージ取得間隔
+const MSG_FETCH_MS = 15000; // 共有メチE��ージ取得間隁E
 
-// 表示テンポ：ふわっとIN/OUT長め、でも次はすぐ出る（待ち無し）
+// 表示チE��ポ：�EわっとIN/OUT長め、でも次はすぐ出る（征E��無し！E
 const MSG_IN_MS = 520;
 const MSG_HOLD_MS = 1500;
 const MSG_OUT_MS = 520;
 const MSG_CYCLE_MS = MSG_IN_MS + MSG_HOLD_MS + MSG_OUT_MS; // 2540ms
 
-// === コメントウォール（限界挑戦）===
-// ★同時表示数（最大）メインノブ：毎日 最大1000件まで同時表示
+// === コメントウォール�E�限界挑戦�E�E==
+// ☁E��時表示数�E�最大�E�メインノブ�E�毎日 最大1000件まで同時表示
 const WALL_MAX_VISIBLE = 1000;
 
-// 画面に出す総文字量（char budget）
-// ※投稿上限30文字なので現状は実質ほぼ効かないが、将来長文化しても破綻しないように残す
+// 画面に出す総文字量�E�Ehar budget�E�E
+// ※投稿上限30斁E��なので現状は実質ほぼ効かなぁE��、封E��長斁E��しても破綻しなぁE��ぁE��残す
 const WALL_CHAR_BUDGET_PC = 150000;
 const WALL_CHAR_BUDGET_MOBILE = 90000;
 
-// 1件あたり最低/最大の表示文字数（budgetから自動計算した上で、この範囲に収める）
+// 1件あたり最佁E最大の表示斁E��数�E�Eudgetから自動計算した上で、この篁E��に収める！E
 const WALL_MIN_CHARS_PER_MSG = 6;
 const WALL_MAX_CHARS_PER_MSG_PC = 280;
 const WALL_MAX_CHARS_PER_MSG_MOBILE = 240;
 
-// 文字の見え方（密度アップ）
-const WALL_FONT_PC = 12; // 11〜13
-const WALL_FONT_MOBILE = 11; // 10〜12
-const WALL_LINE_HEIGHT = 1.35; // 1.28〜1.45
-const WALL_LETTER_SPACING = "0.02em"; // 0〜0.04em
+// 斁E���E見え方�E�寁E��アチE�E�E�E
+const WALL_FONT_PC = 12; // 11、E3
+const WALL_FONT_MOBILE = 11; // 10、E2
+const WALL_LINE_HEIGHT = 1.35; // 1.28、E.45
+const WALL_LETTER_SPACING = "0.02em"; // 0、E.04em
 const WALL_MAX_WIDTH_PC = "min(360px, 34vw)";
 const WALL_MAX_WIDTH_MOBILE = "min(320px, 50vw)";
 
-// 文字色（10色くらい）
+// 斁E��色�E�E0色くらぁE��E
 const MSG_COLORS = [
   "#9ce2e2",
   "#ffd1dc",
@@ -56,10 +56,10 @@ const MSG_COLORS = [
   "#99d899",
 ] as const;
 
-// ★禁止ワード（ここをソースで編集して増やしていく）
-const BANNED_WORDS = ["死ね", "しね", "あほ", "阿保", "キモイ", "きしょい", "中国", "チャイナ", 
-  "ばか", "バカ", "馬鹿", "spam", "URL", "http", "https", "@", "可愛くない", "嫌い", 
-  "ブス",  "ぶさいく",  "ブサイク", "ぶす", "逝って", "化粧濃い", "下手", "大したことない", "死ね", "やめろ", "引退", "ばばあ", "ババア", "年増"] as const;
+// ☁E��止ワード（ここをソースで編雁E��て増やしてぁE���E�E
+const BANNED_WORDS = ["死ね", "し�E", "あほ", "阿俁E, "キモイ", "きしめE��", "中国", "チャイチE, 
+  "ばぁE, "バカ", "馬鹿", "spam", "URL", "http", "https", "@", "可愛くなぁE, "嫌い", 
+  "ブス",  "ぶさいぁE,  "ブサイク", "ぶぁE, "逝って", "化粧濁E��", "下手", "大したことなぁE, "死ね", "めE��めE, "引退", "ばばぁE, "ババア", "年墁E] as const;
 
 // ===== Logo =====
 const LOGO_SRC = "/logo.png";
@@ -72,56 +72,56 @@ const LOGO_OUT_MS = 1000;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
 // ===== Profile =====
-const PROFILE_NAME = `CanCana（キャンカナ）
-役者名：星空　奏（ほしぞら　かな）`;
+const PROFILE_NAME = `CanCana�E�キャンカナ！E
+役老E���E�星空　奏（ほしぞら　かな�E�`;
 
 const PROFILE_TEXT = `
-アーティスト、俳優。 
-福岡出身、大阪育ち。 
-持ち前の表現力を活かし、俳優業を経て、アーティストとして活動中。
-音楽活動では、透明感のある歌声と繊細な表現力で、多くのファンを魅了している。 
-また、ライブパフォーマンスにも定評があり、観客を引き込む力を持つ。
-役者業では、俳優としての表現力に定評があり、
-細やかな心の動きからダイナミックな転換まで自在に演じ分ける。
-声色・視線・呼吸の“間”で空気を変え、役を生きた存在として立ち上げる演技が魅力。
+アーチE��スト、俳優、E
+福岡出身、大阪育ち、E
+持ち前�E表現力を活かし、俳優業を経て、アーチE��ストとして活動中、E
+音楽活動では、E���E感�Eある歌声と繊細な表現力で、多くのファンを魁E��E��てぁE��、E
+また、ライブパフォーマンスにも定評があり、観客を引き込む力を持つ、E
+役老E��では、俳優としての表現力に定評があり、E
+細めE��な忁E�E動きからダイナミチE��な転換まで自在に演じ刁E��る、E
+声色・視線�E呼吸の“間”で空気を変え、役を生きた存在として立ち上げる演技が魁E��、E
 
-☆基本情報
+☁E��本惁E��
 
-●血液型 A型 
-●誕生日 ７月３日 
+●血液垁EA垁E
+●誕生日 �E�月�E�日 
 ●身長 151 cm 
-●趣味 人間観察、ゲーム、スポーツ観戦、ヨガ・美容、海外放浪
-●特技 テニス、短距離走、ファッションコーディネート、殺陣
+●趣味 人間観察、ゲーム、スポ�EチE��戦、ヨガ・美容、海外放浪
+●特技 チE��ス、短距離走、ファチE��ョンコーチE��ネ�Eト、殺陣
 
-☆役者経歴
+☁E��老E��歴
 
-●しにもの調査団 消えたアイドル 夏見役 
-●朗読劇 「紅い空をあおぐ」 主演 
-●舞台 「アリス～不思議の国の物語～」 チェシャ猫役 
-●映画 「その人知らず」 木下サクラ役 
+●しにも�E調査団 消えたアイドル 夏見役 
+●朗読劁E「紁E��空をあおぐ、E主漁E
+●�E台 「アリス�E�不思議の国の物語～、Eチェシャ猫役 
+●映画 「その人知らず、E木下サクラ役 
 ●事務所舞台多数 
-●東京MX ドラマ 「妖ばなし」文車妖妃編 沙奈役 
-●映画 「明日への君へ」 出演手話映画 
-●「Pこの空」 松永エリ役 
-●モナコ国際映画祭出展作品 「TOKYO24」 出演 
-●KARAのギュリ、山本裕典、風見しんご 主演作品「Revive by TOKYO24」 出演
+●東京MX ドラチE「妖�Eなし」文車妖妁E�� 沙奈役 
+●映画 「�E日への君へ、E出演手話映画 
+●「Pこ�E空、E松永エリ役 
+●モナコ国際映画祭出展作品 「TOKYO24、E出漁E
+●KARAのギュリ、山本裕�E、E��見しんご 主演作品「Revive by TOKYO24、E出漁E
 
-☆アーティスト経歴
+☁E��ーチE��スト経歴
 
-●「メグリメグル」でインディーズデビュー 
-●野外フェス 「ONE+NATION」 出演 
-●ビバラポップ！さいたまスーパーアリーナにてオープニングアクト 出演 
-●ラジオ 川崎FM パーソナリティ 
-●「Revive by TOKYO」挿入歌にオリジナル曲「ポラリス」が決定 
-●Project DIVA XR Festival バーチャル 出演 
-●宗像フェス出演 
-●東南アジア最大バーチャルフェスC3AFA 出演 
-●SHOWROOMトップライバー入り 
-●ゲーム 「Call of Duty」 チャリティー大会公式アンバサダー 
-●6月 バラエティ出演  
-●BIGO LIVE 音楽部門Award日本１位 受賞
-●BIGO LIVE 東アジア音楽部門Award３位 受賞
-●バラエティ番組 「ニューヨークの勝手に占っちゃいました」 出演
+●「メグリメグル」でインチE��ーズチE��ュー 
+●野外フェス 「ONE+NATION、E出漁E
+●ビバラポップ！さぁE��まスーパ�EアリーナにてオープニングアクチE出漁E
+●ラジオ 川崎FM パ�EソナリチE�� 
+●「Revive by TOKYO」挿入歌にオリジナル曲「�Eラリス」が決宁E
+●Project DIVA XR Festival バ�Eチャル 出漁E
+●宗像フェス出漁E
+●東南アジア最大バ�EチャルフェスC3AFA 出漁E
+●SHOWROOMトップライバ�E入めE
+●ゲーム 「Call of Duty、EチャリチE��ー大会�E式アンバサダー 
+◁E朁EバラエチE��出漁E 
+●BIGO LIVE 音楽部門Award日本�E�佁E受賁E
+●BIGO LIVE 東アジア音楽部門Award�E�佁E受賁E
+●バラエチE��番絁E「ニューヨークの勝手に占っちめE��ました、E出漁E
 `.trim();
 
 function todayKeyMidnight() {
@@ -132,7 +132,7 @@ function todayKeyMidnight() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// ✅ 朝6時境界（タップカウンタ用）
+// ✁E朁E時墁E���E�タチE�Eカウンタ用�E�E
 function dayKey6am() {
   const d = new Date();
   const x = new Date(d);
@@ -207,7 +207,7 @@ type Slot = {
 };
 
 type MsgView = {
-  key: string; // 毎サイクルで変える（アニメを毎回走らせる）
+  key: string; // 毎サイクルで変える（アニメを毎回走らせる！E
   text: string;
   x: number; // %
   y: number; // %
@@ -253,9 +253,9 @@ function clipForBudget(text: string, maxChars: number) {
 }
 
 /**
- * ★毎サイクル「ランダム位置」を作る
- * - 少ない時：minDistを効かせて“なるべく重ならない”
- * - 多い時：minDistを下げ、超多い時は衝突判定をほぼ無効化して“溢れ”優先
+ * ☁E��サイクル「ランダム位置」を作る
+ * - 少なぁE���E�minDistを効かせて“なるべく重ならなぁE��E
+ * - 多い時：minDistを下げ、趁E��い時�E衝突判定をほぼ無効化して“溢れ”優允E
  */
 function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
   const minX = 6;
@@ -263,28 +263,28 @@ function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
   const minY = 10;
   const maxY = 90;
 
-  // 密度に応じて最小距離（%）を可変化
-  // 少ないときは距離を確保、多いときは距離を詰める（重なってOK）
+  // 寁E��に応じて最小距離�E�E�E�を可変化
+  // 少なぁE��き�E距離を確保、多いとき�E距離を詰める�E�重なってOK�E�E
   let minDist: number;
   if (count <= (isMobile ? 40 : 70)) minDist = isMobile ? 5.2 : 4.6;
   else if (count <= (isMobile ? 120 : 200)) minDist = isMobile ? 3.4 : 3.0;
   else if (count <= (isMobile ? 250 : 450)) minDist = isMobile ? 2.2 : 1.9;
   else if (count <= (isMobile ? 450 : 800)) minDist = isMobile ? 1.2 : 1.0;
-  else minDist = 0.2; // ほぼ無効（1000近いときは溢れ優先）
+  else minDist = 0.2; // ほぼ無効�E�E000近いとき�E溢れ優先！E
 
   const minDist2 = minDist * minDist;
 
   const slots: Slot[] = [];
   const tries = Math.max(1200, count * 50);
 
-  // ほぼ無効レンジ（超大量）：衝突判定を省略して高速化
+  // ほぼ無効レンジ�E�趁E��量）：衝突判定を省略して高速化
   const skipCollision = minDist <= 0.25;
 
   for (let t = 0; t < tries && slots.length < count; t++) {
     const x = minX + Math.random() * (maxX - minX);
     const y = minY + Math.random() * (maxY - minY);
 
-    // UI避け（上右メニュー / 下左Profile）
+    // UI避け（上右メニュー / 下左Profile�E�E
     const avoidTopRight = x > 72 && y < 18;
     const avoidBottomLeft = x < 32 && y > 74;
     if (avoidTopRight || avoidBottomLeft) continue;
@@ -305,7 +305,7 @@ function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
     slots.push({ x, y });
   }
 
-  // 足りなければ、制約を捨ててでも埋め切る（“溢れ”優先）
+  // 足りなければ、制紁E��捨ててでも埋め�Eる（“溢れ”優先！E
   while (slots.length < count) {
     const x = minX + Math.random() * (maxX - minX);
     const y = minY + Math.random() * (maxY - minY);
@@ -318,7 +318,7 @@ function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
   return slots;
 }
 
-// ===== Supabase REST（ライブラリ不要）=====
+// ===== Supabase REST�E�ライブラリ不要E��E====
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const USE_SUPABASE = Boolean(SB_URL && SB_KEY);
@@ -402,7 +402,7 @@ export default function HomeInteractive({
   const msgResetRef = useRef<number | null>(null);
   const msgSeqRef = useRef(0);
 
-  // ★順番表示（キュー）＝公平性維持
+  // ☁E��E��表示�E�キュー�E�＝�E平性維持E
   const msgQueueRef = useRef<StoredMsg[]>([]);
   const msgQueueIdxRef = useRef(0);
 
@@ -416,21 +416,21 @@ export default function HomeInteractive({
     return () => mq.removeEventListener?.("change", apply);
   }, []);
 
-  // Secret keys（0時）
+  // Secret keys�E�E時！E
   const day0 = useMemo(() => todayKeyMidnight(), []);
   const tapKey = `cancana_taps_${day0}`;
   const doneKey = `cancana_secret_done_${day0}`;
 
-  // Message taps（6時）
+  // Message taps�E�E時！E
   const msgTapKey = `cancana_msg_taps_${msgDay}`;
 
-  // local fallback messages（24h）
+  // local fallback messages�E�E4h�E�E
   const localMsgKey = `cancana_msgs_24h`;
 
-  // 禁止ワード（ソース固定）
+  // 禁止ワード（ソース固定！E
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
 
-  // ★スクロールバー対策：Home表示中は html/body を完全に固定
+  // ☁E��クロールバ�E対策：Home表示中は html/body を完�Eに固宁E
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -452,7 +452,7 @@ export default function HomeInteractive({
     };
   }, []);
 
-  // 6時跨ぎ（タップカウンタのキーだけ更新）
+  // 6時跨ぎ（タチE�Eカウンタのキーだけ更新�E�E
   useEffect(() => {
     if (msgResetRef.current) window.clearTimeout(msgResetRef.current);
     msgResetRef.current = window.setTimeout(() => setMsgDay(dayKey6am()), msUntilNext6am());
@@ -488,7 +488,7 @@ export default function HomeInteractive({
     }
   };
 
-  // 初回＋定期取得
+  // 初回�E�定期取征E
   useEffect(() => {
     refreshMessages();
     if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
@@ -501,7 +501,7 @@ export default function HomeInteractive({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ★表示：順番（公平）＋位置ランダム（毎回）＋char budget＋超キラリ
+  // ☁E��示�E�頁E���E��E平�E�＋位置ランダム�E�毎回�E�＋char budget�E�趁E��ラリ
   useEffect(() => {
     if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
     msgCycleRef.current = null;
@@ -512,7 +512,7 @@ export default function HomeInteractive({
       return;
     }
 
-    // キュー更新（内容が変わったら再構築）
+    // キュー更新�E��E容が変わったら再構築！E
     const baseIds = base.map((x) => x.id).join("|");
     const qIds = msgQueueRef.current.map((x) => x.id).join("|");
     if (baseIds !== qIds) {
@@ -521,7 +521,7 @@ export default function HomeInteractive({
       msgQueueIdxRef.current = 0;
     }
 
-    // ★同時表示数：最大1000（少ない日は少ない分だけ＝重ならない優先）
+    // ☁E��時表示数�E�最大1000�E�少なぁE��は少なぁE�Eだけ＝重ならなぁE��先！E
     const takeFixed = Math.min(WALL_MAX_VISIBLE, base.length);
 
     const tick = () => {
@@ -531,7 +531,7 @@ export default function HomeInteractive({
       const q = msgQueueRef.current.length ? msgQueueRef.current : base;
       const take = takeFixed;
 
-      // 順番に take 件（公平性）
+      // 頁E��に take 件�E��E平性�E�E
       const chosen: StoredMsg[] = [];
       for (let i = 0; i < take; i++) {
         const idx = (msgQueueIdxRef.current + i) % q.length;
@@ -539,20 +539,20 @@ export default function HomeInteractive({
       }
       msgQueueIdxRef.current = (msgQueueIdxRef.current + take) % q.length;
 
-      // 一周したら再シャッフル（偏り軽減）
+      // 一周したら�EシャチE��ル�E�偏り軽減！E
       if (msgQueueIdxRef.current === 0 && q.length > 1) {
         const qq = [...q];
         shuffleInPlace(qq);
         msgQueueRef.current = qq;
       }
 
-      // char budget（画面総量で制御）
+      // char budget�E�画面総量で制御�E�E
       const totalBudget = isMobile ? WALL_CHAR_BUDGET_MOBILE : WALL_CHAR_BUDGET_PC;
       const perAuto = Math.floor(totalBudget / take);
       const perMax = isMobile ? WALL_MAX_CHARS_PER_MSG_MOBILE : WALL_MAX_CHARS_PER_MSG_PC;
       const per = clamp(perAuto, WALL_MIN_CHARS_PER_MSG, perMax);
 
-      // ★毎回ランダム位置生成（%）
+      // ☁E��回ランダム位置生�E�E�E�E�E
       const slots = makeRandomSlots(take, isMobile);
 
       const views: MsgView[] = [];
@@ -697,11 +697,11 @@ export default function HomeInteractive({
       return;
     }
     if (t.length > MSG_MAX_LEN) {
-      setValidationError(`※${MSG_MAX_LEN}文字までです`);
+      setValidationError(`※${MSG_MAX_LEN}斁E��までです`);
       return;
     }
     const hit = containsBanned(t, bannedWords);
-    if (hit) setValidationError("※入力禁止ワードが含まれています");
+    if (hit) setValidationError("※入力禁止ワードが含まれてぁE��ぁE);
     else setValidationError("");
   }, [msgText, bannedWords]);
 
@@ -713,7 +713,7 @@ export default function HomeInteractive({
 
     const hit = containsBanned(clipped, bannedWords);
     if (hit) {
-      setValidationError("※入力禁止ワードが含まれています");
+      setValidationError("※入力禁止ワードが含まれてぁE��ぁE);
       return;
     }
 
@@ -740,7 +740,7 @@ export default function HomeInteractive({
       setMsgOpen(false);
       setValidationError("");
     } catch {
-      setValidationError("送信に失敗しました。時間をおいて再度お試しください。");
+      setValidationError("送信に失敗しました。時間をおいて再度お試しください、E);
     }
   };
 
@@ -759,13 +759,13 @@ export default function HomeInteractive({
         position: "relative",
         width: "100vw",
         height: "100svh",
-        overflow: "hidden", // ★スクロールバー根絶（横も含む）
+        overflow: "hidden", // ☁E��クロールバ�E根絶�E�横も含む�E�E
         touchAction: "manipulation",
       }}
     >
       {homeReady && <HomeClient images={images} />}
 
-      {/* Messages overlay（fixed + %座標で“確実にランダム配置”） */}
+      {/* Messages overlay�E�Eixed + %座標で“確実にランダム配置”！E*/}
       {msgViews.length > 0 && !showLogo && homeReady && (
         <div
           aria-hidden
@@ -816,7 +816,7 @@ export default function HomeInteractive({
               100% { opacity: 0; transform: translateY(-2px) scale(1.01); filter: blur(1.6px); }
             }
 
-            /* ★超キラリ：text-shadow強化＋brightness。スパークル無しで軽い */
+            /* ☁E��E��ラリ�E�text-shadow強化＋brightness。スパ�Eクル無しで軽ぁE*/
             @keyframes msgGlowStrong{
               0%{
                 text-shadow:
@@ -864,7 +864,7 @@ export default function HomeInteractive({
               }
             }
 
-            /* ★ボタン Hover/Active 統一（Close / Post / Profile Close） */
+            /* ☁E�Eタン Hover/Active 統一�E�Elose / Post / Profile Close�E�E*/
             .cancanaBtn{
               transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease;
               -webkit-tap-highlight-color: transparent;
@@ -925,7 +925,7 @@ export default function HomeInteractive({
         </button>
       )}
 
-      {/* Message modal（タップした時のみ） */}
+      {/* Message modal�E�タチE�Eした時�Eみ�E�E*/}
       {msgOpen && (
         <div
           onPointerDown={(e) => e.stopPropagation()}
@@ -975,13 +975,13 @@ export default function HomeInteractive({
             </div>
 
             <div style={{ marginTop: 10, opacity: 0.78, fontSize: 12.5, lineHeight: 1.7 }}>
-              みんなのメッセージを書いてね♡（{MSG_MAX_LEN}文字まで）
+              みんなのメチE��ージを書ぁE��ね♡�E�EMSG_MAX_LEN}斁E��まで�E�E
             </div>
 
             <textarea
               value={msgText}
               onChange={(e) => setMsgText(e.target.value)}
-              placeholder="メッセージは24時間以内に消えるよ♡"
+              placeholder="メチE��ージは24時間以冁E��消えるよ♡"
               rows={4}
               style={{
                 marginTop: 12,
@@ -1033,10 +1033,10 @@ export default function HomeInteractive({
             </div>
 
             <div style={{ marginTop: 12, opacity: 0.55, fontSize: 11, lineHeight: 1.5 }}>
-              {USE_SUPABASE ? "共有モード（全員に表示）" : "ローカルモード（この端末のみ）"}
+              {USE_SUPABASE ? "共有モード（�E員に表示�E�E : "ローカルモード（この端末のみ�E�E}
             </div>
             <div style={{ marginTop: 10, opacity: 0.55, fontSize: 11, lineHeight: 1.5 }}>
-              禁止ワードはソース内の <code>BANNED_WORDS</code> を編集してください。
+              禁止ワード�Eソース冁E�E <code>BANNED_WORDS</code> を編雁E��てください、E
             </div>
           </div>
         </div>
@@ -1070,7 +1070,7 @@ export default function HomeInteractive({
               lineHeight: 1.9,
               boxShadow: "0 30px 120px rgba(0,0,0,0.65)",
 
-              // ✅スマホだけ文字を少し小さく（変な改行を減らす）
+              // ✁E��マ�Eだけ文字を少し小さく（変な改行を減らす！E
               fontSize: isMobile ? 12.5 : 14,
             }}
           >
@@ -1097,7 +1097,7 @@ export default function HomeInteractive({
               <div
                 style={{
                   whiteSpace: "pre-wrap",
-                  // ✅スマホだけ名前ブロックを少し小さく
+                  // ✁E��マ�Eだけ名前ブロチE��を少し小さぁE
                   fontSize: isMobile ? 17 : 20,
                   lineHeight: 1.7,
                   letterSpacing: "0.06em",
@@ -1113,38 +1113,30 @@ export default function HomeInteractive({
         </div>
       )}
 
-      {/* Logo overlay */}
-      {showLogo && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: LOGO_BG,
-            pointerEvents: "all",
-          }}
-        >
-          <img
-            src={LOGO_SRC}
-            alt=""
-            style={{
-              width: "min(56vw, 340px)",
-              height: "auto",
-              animation: `logoBlur ${LOGO_TOTAL_MS}ms ease-in-out forwards`,
-              filter: "blur(400px)",
-              opacity: 0,
-              transform: "translateZ(0)",
-              willChange: "filter, opacity, transform",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Secret overlay */}
+      {/* Logo overlay (DEBUG SIMPLE) */}
+{showLogo && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 999999,
+      background: "#fff",
+      display: "grid",
+      placeItems: "center",
+      pointerEvents: "all",
+    }}
+  >
+    <img
+      src="/logo.png"
+      alt="logo"
+      style={{
+        width: "min(70vw, 420px)",
+        height: "auto",
+        display: "block",
+      }}
+    />
+  </div>
+)}{/* Secret overlay */}
       {secretSrc && (
         <div
           aria-hidden
