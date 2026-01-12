@@ -88,9 +88,9 @@ const LOGO_SRC = "/logo.png";
 const LOGO_ONCE_KEY = "cancana_logo_once_session_v3";
 const LOGO_BG = "#000";
 
-const LOGO_IN_MS = 800;
-const LOGO_HOLD_MS = 1200;
-const LOGO_OUT_MS = 800;
+const LOGO_IN_MS = 1200;
+const LOGO_HOLD_MS = 1600;
+const LOGO_OUT_MS = 1200;
 const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
 
 // ✅ ロゴ後の真っ暗防止：Home背景が間に合わない時の保険（無限待ち回避）
@@ -661,6 +661,28 @@ export default function HomeInteractive({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homeBgPreloaded]);
+
+  // ✅ ロゴ終了後に背景プリロードが「後から」完了しても必ず抜ける（黒フリーズ対策）
+useEffect(() => {
+  if (!showLogo) return;
+  if (!logoDoneRef.current) return;
+  if (!homeBgPreloaded) return;
+
+  setShowLogo(false);
+  setHomeReady(true);
+
+  setContentVisible(false);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => setContentVisible(true));
+  });
+
+  try {
+    sessionStorage.setItem(LOGO_ONCE_KEY, "1");
+  } catch {}
+
+  if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+  hideTimeoutRef.current = null;
+}, [homeBgPreloaded, showLogo]);
 
   const triggerSecret = async () => {
     if (localStorage.getItem(doneKey) === "1") return;
