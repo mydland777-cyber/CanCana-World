@@ -1081,78 +1081,88 @@ export default function HomeInteractive({
           Profile
         </button>
       )}
-
+      
       {/* Logo overlay */}
-      {showLogo && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 999999,
-              background: LOGO_BG,
-              display: "grid",
-              placeItems: "center",
-              pointerEvents: "all",
-              animation:
-                typeof window !== "undefined" &&
-                new URLSearchParams(window.location.search).get("logo") === "1"
-                  ? "none"
-                  : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
-            }}
-          >
-            <img
-              src={LOGO_SRC}
-              alt="logo"
-              style={{
-                width: "min(70vw, 420px)",
-                height: "auto",
-                display: "block",
-                willChange: "filter, opacity, transform",
-                animation:
-                  typeof window !== "undefined" &&
-                  new URLSearchParams(window.location.search).get("logo") === "1"
-                    ? "none"
-                    : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
-              }}
-            />
-          </div>
+{showLogo && (
+  <>
+    <div
+      className="logoOverlayAnim"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 999999,
+        background: LOGO_BG,
+        display: "grid",
+        placeItems: "center",
+        pointerEvents: "all",
+        animation:
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("logo") === "1"
+            ? "none"
+            : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
+      }}
+    >
+      <img
+        className="logoImgAnim"
+        src={LOGO_SRC}
+        alt="logo"
+        style={{
+          width: "min(70vw, 420px)",
+          height: "auto",
+          display: "block",
+          willChange: "filter, opacity, transform",
+          animation:
+            typeof window !== "undefined" &&
+            new URLSearchParams(window.location.search).get("logo") === "1"
+              ? "none"
+              : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
+        }}
+      />
+    </div>
 
-          <style>{`
-            @keyframes logoOverlay{
-              0%{opacity:1}
-              100%{opacity:1}
-            }
+    <style>{`
+      @keyframes logoOverlay{
+        0%{opacity:1}
+        100%{opacity:1}
+      }
 
-            @keyframes logoGaussian{
-              0%{
-                opacity: 0;
-                filter: blur(400px);
-                transform: scale(1.02);
-              }
-              ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
-                opacity: 1;
-                filter: blur(0px);
-                transform: scale(1);
-              }
-              ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
-                opacity: 1;
-                filter: blur(0px);
-                transform: scale(1);
-              }
-              100%{
-                opacity: 0;
-                filter: blur(500px);
-                transform: scale(1.03);
-              }
-            }
+      @keyframes logoGaussian{
+        0%{
+          opacity: 0;
+          filter: blur(400px);
+          transform: scale(1.02);
+        }
+        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
+          opacity: 1;
+          filter: blur(0px);
+          transform: scale(1);
+        }
+        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
+          opacity: 1;
+          filter: blur(0px);
+          transform: scale(1);
+        }
+        100%{
+          opacity: 0;
+          filter: blur(500px);
+          transform: scale(1.03);
+        }
+      }
 
-            @media (prefers-reduced-motion: reduce){
-              *{ animation:none !important; }
-            }
-          `}</style>
-        </>
-      )}
+      /* ✅ Reduce Motionでも「ロゴだけ」は動かす */
+      @media (prefers-reduced-motion: reduce){
+        *{ animation:none !important; }
+
+        .logoOverlayAnim{
+          animation: logoOverlay ${LOGO_TOTAL_MS}ms linear forwards !important;
+        }
+        .logoImgAnim{
+          animation: logoGaussian ${LOGO_TOTAL_MS}ms linear forwards !important;
+        }
+      }
+    `}</style>
+  </>
+)}
 
       {/* Secret overlay */}
       {secretSrc && (
