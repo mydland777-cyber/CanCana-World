@@ -1141,7 +1141,7 @@ export default function HomeInteractive({
         </button>
       )}
 
-      {/* Logo overlay */}
+            {/* Logo overlay */}
       {showLogo && (
         <>
           <div
@@ -1149,7 +1149,7 @@ export default function HomeInteractive({
             style={{
               position: "fixed",
               inset: 0,
-              zIndex: 2147483647, // ✅ 黒カバーより上
+              zIndex: 2147483647,
               background: LOGO_BG,
               display: "grid",
               placeItems: "center",
@@ -1161,7 +1161,19 @@ export default function HomeInteractive({
                   : `logoOverlay ${logoTotal}ms linear forwards`,
             }}
           >
-            {/* Logo overlay */}
+            {/* ✅ ロゴ画像を描画する（これが消えてた） */}
+            <img
+              className="logoImgAnim"
+              src={LOGO_SRC}
+              alt="CanCana"
+              draggable={false}
+              style={{
+                width: "min(72vw, 520px)",
+                height: "auto",
+                display: "block",
+                opacity: logoLoaded ? 1 : 0, // ✅ 読み込み前のチラ見え/一瞬の崩れ防止
+              }}
+            />
           </div>
 
           <style>{`
@@ -1191,6 +1203,19 @@ export default function HomeInteractive({
                 filter: blur(500px);
                 transform: scale(1.03);
               }
+            }
+
+            .logoImgAnim{
+              animation:
+                ${
+                  typeof window !== "undefined" &&
+                  new URLSearchParams(window.location.search).get("logo") === "1"
+                    ? "none"
+                    : `logoGaussian ${logoTotal}ms linear forwards`
+                };
+              will-change: opacity, filter, transform;
+              user-select: none;
+              -webkit-user-drag: none;
             }
 
             /* ✅ Reduce Motionでもロゴだけは動かす */
