@@ -1161,22 +1161,7 @@ export default function HomeInteractive({
                   : `logoOverlay ${logoTotal}ms linear forwards`,
             }}
           >
-            <img
-              className="logoImgAnim"
-              src={LOGO_SRC}
-              alt="logo"
-              style={{
-                width: "min(70vw, 420px)",
-                height: "auto",
-                display: "block",
-                willChange: "filter, opacity, transform",
-                animation:
-                  typeof window !== "undefined" &&
-                  new URLSearchParams(window.location.search).get("logo") === "1"
-                    ? "none"
-                    : `logoGaussian ${logoTotal}ms linear forwards`,
-              }}
-            />
+            Logo overlay
           </div>
 
           <style>{`
