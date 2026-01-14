@@ -88,10 +88,15 @@ const LOGO_SRC = "/logo.png";
 const LOGO_ONCE_KEY = "cancana_logo_once_session_v3";
 const LOGO_BG = "#000";
 
-const LOGO_IN_MS = 800;
-const LOGO_HOLD_MS = 1200;
-const LOGO_OUT_MS = 800;
-const LOGO_TOTAL_MS = LOGO_IN_MS + LOGO_HOLD_MS + LOGO_OUT_MS;
+// ✅ PC（今まで通り）
+const LOGO_IN_MS_PC = 800;
+const LOGO_HOLD_MS_PC = 1200;
+const LOGO_OUT_MS_PC = 800;
+
+// ✅ スマホだけゆっくり
+const LOGO_IN_MS_MOBILE = 1400;
+const LOGO_HOLD_MS_MOBILE = 1800;
+const LOGO_OUT_MS_MOBILE = 1400;
 
 // ✅ Homeの「ふわっと」(ロゴ後/初回じゃない時も)
 const HOME_FADE_MS = 520;
@@ -226,6 +231,8 @@ function clipForBudget(text: string, maxChars: number) {
   if (maxChars <= 1) return "…";
   return t.slice(0, Math.max(1, maxChars - 1)) + "…";
 }
+
+// ✅ 後半（被ってOK側）用：従来スロット
 function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
   const minX = 6;
   const maxX = 94;
@@ -282,7 +289,7 @@ function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
 }
 
 // ===============================
-// ✅ 追加：矩形で「被らない努力」するためのユーティリティ
+// ✅ 追加：前半（被らない努力）用：矩形推定 + 衝突回避
 // ===============================
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -295,7 +302,7 @@ function rectHit(a: Rect, b: Rect, gap = 10) {
   );
 }
 
-// maxWidth（min(360px, 34vw) 等）を px に近似
+// maxWidth（min(...)）を px に近似
 function maxWidthPx(isMobile: boolean, vw: number) {
   const v = Math.max(320, vw || 0);
   return isMobile ? Math.min(320, v * 0.5) : Math.min(360, v * 0.34);
@@ -306,7 +313,7 @@ function estimateBoxPx(text: string, isMobile: boolean, vw: number) {
   const fontSize = isMobile ? WALL_FONT_MOBILE : WALL_FONT_PC;
   const mw = maxWidthPx(isMobile, vw);
 
-  const charW = fontSize * 0.98; // 安全側（日本語多め）
+  const charW = fontSize * 1.02; // 少し強めに見積もる（安全側）
   const linesByNewline = Math.max(1, (text.split("\n").length || 1));
   const plainLen = Math.max(1, text.length);
   const estTextW = plainLen * charW;
@@ -317,11 +324,10 @@ function estimateBoxPx(text: string, isMobile: boolean, vw: number) {
   const w = Math.min(mw, Math.max(42, Math.min(mw, estTextW)));
   const h = Math.max(18, lines * fontSize * WALL_LINE_HEIGHT);
 
-  const pad = 8;
+  const pad = 14; // 影/ブレ分
   return { w: w + pad, h: h + pad };
 }
 
-// 「被らない努力」→ 置けないものは spill へ（後で被ってOK枠に回す）
 function buildNonOverlappingViewsWithSpill(args: {
   seq: number;
   chosen: StoredMsg[];
@@ -336,7 +342,7 @@ function buildNonOverlappingViewsWithSpill(args: {
   const views: MsgView[] = [];
   const spill: StoredMsg[] = [];
 
-  const gap = 10;
+  const gap = 12;
 
   // 元の雰囲気を崩さない範囲（%）
   const minX = 6;
@@ -344,8 +350,7 @@ function buildNonOverlappingViewsWithSpill(args: {
   const minY = 10;
   const maxY = 90;
 
-  // 試行回数：数が多いほど軽めに（2.5秒ごとに回るので）
-  const triesPer = chosen.length >= 350 ? 40 : chosen.length >= 200 ? 60 : 90;
+  const triesPer = chosen.length >= 350 ? 36 : chosen.length >= 200 ? 56 : 86;
 
   for (let i = 0; i < chosen.length; i++) {
     const m = chosen[i];
@@ -359,6 +364,8 @@ function buildNonOverlappingViewsWithSpill(args: {
 
     let ok = false;
     let rect: Rect = { x: 0, y: 0, w, h };
+    let outX = 50;
+    let outY = 50;
 
     for (let t = 0; t < triesPer; t++) {
       const px = minX + Math.random() * (maxX - minX);
@@ -385,25 +392,26 @@ function buildNonOverlappingViewsWithSpill(args: {
       if (collide) continue;
 
       ok = true;
-
       placed.push(rect);
 
-      const outX = ((rect.x + rect.w / 2) / vw) * 100;
-      const outY = ((rect.y + rect.h / 2) / vh) * 100;
-
-      views.push({
-        key: `msg_${seq}_${i}_${m.id}`,
-        text: clipped,
-        x: clamp(outX, 2, 98),
-        y: clamp(outY, 2, 98),
-        s,
-        color: pickOne(MSG_COLORS),
-      });
-
+      outX = ((rect.x + rect.w / 2) / vw) * 100;
+      outY = ((rect.y + rect.h / 2) / vh) * 100;
       break;
     }
 
-    if (!ok) spill.push(m);
+    if (!ok) {
+      spill.push(m);
+      continue;
+    }
+
+    views.push({
+      key: `msg_${seq}_${i}_${m.id}`,
+      text: clipped,
+      x: clamp(outX, 2, 98),
+      y: clamp(outY, 2, 98),
+      s,
+      color: pickOne(MSG_COLORS),
+    });
   }
 
   return { views, spill };
@@ -494,7 +502,11 @@ export default function HomeInteractive({
   const msgQueueRef = useRef<StoredMsg[]>([]);
   const msgQueueIdxRef = useRef(0);
 
-  const [isMobile, setIsMobile] = useState(false);
+  // ✅ 初期値を matchMedia で即決（スマホロゴが“パッ”になるのを防ぐ）
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
 
   const hideLogoTimerRef = useRef<number | null>(null);
 
@@ -505,6 +517,15 @@ export default function HomeInteractive({
     mq.addEventListener?.("change", apply);
     return () => mq.removeEventListener?.("change", apply);
   }, []);
+
+  // ✅ ロゴ時間（スマホだけゆっくり）
+  const logoIn = isMobile ? LOGO_IN_MS_MOBILE : LOGO_IN_MS_PC;
+  const logoHold = isMobile ? LOGO_HOLD_MS_MOBILE : LOGO_HOLD_MS_PC;
+  const logoOut = isMobile ? LOGO_OUT_MS_MOBILE : LOGO_OUT_MS_PC;
+  const logoTotal = logoIn + logoHold + logoOut;
+
+  const logoPctIn = Math.round((logoIn / logoTotal) * 100);
+  const logoPctHold = Math.round(((logoIn + logoHold) / logoTotal) * 100);
 
   const day0 = useMemo(() => todayKeyMidnight(), []);
   const tapKey = `cancana_taps_${day0}`;
@@ -613,7 +634,7 @@ export default function HomeInteractive({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ ここだけ：表示ロジック（スマホ100まで被らない努力、それ以降OK / PCは500まで）
+  // ✅ メッセージ表示（スマホ=最初100/PC=最初500は被らない努力）
   useEffect(() => {
     if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
     msgCycleRef.current = null;
@@ -659,14 +680,13 @@ export default function HomeInteractive({
       const perMax = isMobile ? WALL_MAX_CHARS_PER_MSG_MOBILE : WALL_MAX_CHARS_PER_MSG_PC;
       const per = clamp(perAuto, WALL_MIN_CHARS_PER_MSG, perMax);
 
-      const vw = Math.max(1, window.innerWidth || 1);
-      const vh = Math.max(1, window.innerHeight || 1);
+      const vw = typeof window !== "undefined" ? Math.max(1, window.innerWidth || 1) : 1;
+      const vh = typeof window !== "undefined" ? Math.max(1, window.innerHeight || 1) : 1;
 
-      // ✅ “被らない努力” の上限：スマホ=100 / PC=500
       const hardLimit = isMobile ? 100 : 500;
       const hardChosen = chosen.slice(0, Math.min(take, hardLimit));
 
-      // ✅ 前半：被らない努力（置けない分は spill に回す）
+      // 前半：被らない努力（置けないものは spill）
       const { views: hardViews, spill } = buildNonOverlappingViewsWithSpill({
         seq,
         chosen: hardChosen,
@@ -676,7 +696,7 @@ export default function HomeInteractive({
         vh,
       });
 
-      // ✅ 後半：被ってOK（＋ spill もここに混ぜる）
+      // 後半：被ってOK（spill + 残り）
       const softList = [...spill, ...chosen.slice(hardChosen.length)];
       const slots = makeRandomSlots(softList.length, isMobile);
 
@@ -774,7 +794,7 @@ export default function HomeInteractive({
           sessionStorage.setItem(LOGO_ONCE_KEY, "1");
         } catch {}
         hideLogoTimerRef.current = null;
-      }, LOGO_TOTAL_MS);
+      }, logoTotal);
     };
 
     img.onload = start;
@@ -1081,88 +1101,83 @@ export default function HomeInteractive({
           Profile
         </button>
       )}
-      
+
       {/* Logo overlay */}
-{showLogo && (
-  <>
-    <div
-      className="logoOverlayAnim"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999999,
-        background: LOGO_BG,
-        display: "grid",
-        placeItems: "center",
-        pointerEvents: "all",
-        animation:
-          typeof window !== "undefined" &&
-          new URLSearchParams(window.location.search).get("logo") === "1"
-            ? "none"
-            : `logoOverlay ${LOGO_TOTAL_MS}ms linear forwards`,
-      }}
-    >
-      <img
-        className="logoImgAnim"
-        src={LOGO_SRC}
-        alt="logo"
-        style={{
-          width: "min(70vw, 420px)",
-          height: "auto",
-          display: "block",
-          willChange: "filter, opacity, transform",
-          animation:
-            typeof window !== "undefined" &&
-            new URLSearchParams(window.location.search).get("logo") === "1"
-              ? "none"
-              : `logoGaussian ${LOGO_TOTAL_MS}ms linear forwards`,
-        }}
-      />
-    </div>
+      {showLogo && (
+        <>
+          <div
+            className="logoOverlayAnim"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 999999,
+              background: LOGO_BG,
+              display: "grid",
+              placeItems: "center",
+              pointerEvents: "all",
+              animation:
+                typeof window !== "undefined" &&
+                new URLSearchParams(window.location.search).get("logo") === "1"
+                  ? "none"
+                  : `logoOverlay ${logoTotal}ms linear forwards`,
+            }}
+          >
+            <img
+              className="logoImgAnim"
+              src={LOGO_SRC}
+              alt="logo"
+              style={{
+                width: "min(70vw, 420px)",
+                height: "auto",
+                display: "block",
+                willChange: "filter, opacity, transform",
+                animation:
+                  typeof window !== "undefined" &&
+                  new URLSearchParams(window.location.search).get("logo") === "1"
+                    ? "none"
+                    : `logoGaussian ${logoTotal}ms linear forwards`,
+              }}
+            />
+          </div>
 
-    <style>{`
-      @keyframes logoOverlay{
-        0%{opacity:1}
-        100%{opacity:1}
-      }
+          <style>{`
+            @keyframes logoOverlay{
+              0%{opacity:1}
+              100%{opacity:1}
+            }
 
-      @keyframes logoGaussian{
-        0%{
-          opacity: 0;
-          filter: blur(400px);
-          transform: scale(1.02);
-        }
-        ${Math.round((LOGO_IN_MS / LOGO_TOTAL_MS) * 100)}%{
-          opacity: 1;
-          filter: blur(0px);
-          transform: scale(1);
-        }
-        ${Math.round(((LOGO_IN_MS + LOGO_HOLD_MS) / LOGO_TOTAL_MS) * 100)}%{
-          opacity: 1;
-          filter: blur(0px);
-          transform: scale(1);
-        }
-        100%{
-          opacity: 0;
-          filter: blur(500px);
-          transform: scale(1.03);
-        }
-      }
+            @keyframes logoGaussian{
+              0%{
+                opacity: 0;
+                filter: blur(400px);
+                transform: scale(1.02);
+              }
+              ${logoPctIn}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              ${logoPctHold}%{
+                opacity: 1;
+                filter: blur(0px);
+                transform: scale(1);
+              }
+              100%{
+                opacity: 0;
+                filter: blur(500px);
+                transform: scale(1.03);
+              }
+            }
 
-      /* ✅ Reduce Motionでも「ロゴだけ」は動かす */
-      @media (prefers-reduced-motion: reduce){
-        *{ animation:none !important; }
-
-        .logoOverlayAnim{
-          animation: logoOverlay ${LOGO_TOTAL_MS}ms linear forwards !important;
-        }
-        .logoImgAnim{
-          animation: logoGaussian ${LOGO_TOTAL_MS}ms linear forwards !important;
-        }
-      }
-    `}</style>
-  </>
-)}
+            /* ✅ Reduce Motionでもロゴだけは動かす */
+            @media (prefers-reduced-motion: reduce){
+              *{ animation:none !important; }
+              .logoOverlayAnim{ animation: logoOverlay ${logoTotal}ms linear forwards !important; }
+              .logoImgAnim{ animation: logoGaussian ${logoTotal}ms linear forwards !important; }
+            }
+          `}</style>
+        </>
+      )}
 
       {/* Secret overlay */}
       {secretSrc && (
