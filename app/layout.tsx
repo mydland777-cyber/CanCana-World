@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script"; // 追加
 import TransitionProvider from "./components/TransitionProvider";
 import SiteMenu from "./components/SiteMenu";
+import React from "react";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.com";
 const IS_PROD =
@@ -77,6 +78,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <head>
+        {/* ✅ ロゴを先読みして黒待ち短縮 */}
+        <link rel="preload" as="image" href="/logo.png" />
+
         {/* GA4（GA_IDがある時だけ） */}
         {GA_ID ? (
           <>
