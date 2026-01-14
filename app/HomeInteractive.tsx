@@ -96,7 +96,7 @@ const LOGO_OUT_MS_PC = 800;
 // ✅ スマホだけゆっくり
 const LOGO_IN_MS_MOBILE = 1000;
 const LOGO_HOLD_MS_MOBILE = 1600;
-const LOGO_OUT_MS_MOBILE = 1000;
+const LOGO_OUT_MS_MOBILE = 1200;
 
 // ✅ Homeの「ふわっと」(ロゴ後/初回じゃない時も)
 const HOME_FADE_MS = 520;
