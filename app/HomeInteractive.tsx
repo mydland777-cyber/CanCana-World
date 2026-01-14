@@ -468,24 +468,24 @@ export default function HomeInteractive({
 }) {
   const [homeReady, setHomeReady] = useState(true);
 
-  // ✅ 初期は false（毎回ロゴが一瞬出るのを防ぐ）
+  // ✅ 初回フレームでロゴを覆って「先にUIが見える」を抑える（ただし最終的にはlogoDecidedで確実に封じる）
   const [showLogo, setShowLogo] = useState(() => {
-  if (typeof window === "undefined") return false;
-
-  try {
-    const forceLogo = new URLSearchParams(window.location.search).get("logo") === "1";
-    if (forceLogo) return true;
-
-    const already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
-    // ✅ まだ見てないセッションなら、初回フレームからロゴを出してピカッを封じる
-    return !already;
-  } catch {
-    return false;
-  }
-});
+    if (typeof window === "undefined") return false;
+    try {
+      const forceLogo = new URLSearchParams(window.location.search).get("logo") === "1";
+      if (forceLogo) return true;
+      const already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
+      return !already;
+    } catch {
+      return false;
+    }
+  });
 
   const [logoLoaded, setLogoLoaded] = useState(false);
   const logoBootedRef = useRef(false);
+
+  // ✅ ロゴ判定が終わるまで“全面黒カバー”でUIの先出しを完全に封じる
+  const [logoDecided, setLogoDecided] = useState(false);
 
   // ✅ Homeの「ふわっと」
   const [homeFade, setHomeFade] = useState(false);
@@ -648,7 +648,7 @@ export default function HomeInteractive({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ メッセージ表示（スマホ=最初100/PC=最初500は被らない努力）
+  // ✅ メッセージ表示（スマホ=最初300/PC=最初500は被らない努力）
   useEffect(() => {
     if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
     msgCycleRef.current = null;
@@ -711,34 +711,33 @@ export default function HomeInteractive({
       });
 
       // 後半：被ってOK（spill + 残り）
-const softList = [...spill, ...chosen.slice(hardChosen.length)];
-const slots = makeRandomSlots(softList.length, isMobile);
+      const softList = [...spill, ...chosen.slice(hardChosen.length)];
+      const slots = makeRandomSlots(softList.length, isMobile);
 
-// ✅ 先に soft（下層）を作る
-const softViews: MsgView[] = [];
-for (let i = 0; i < softList.length; i++) {
-  const slot = slots[i];
-  const m = softList[i];
-  const clipped = clipForBudget(m.text, per);
+      // ✅ 先に soft（下層）を作る
+      const softViews: MsgView[] = [];
+      for (let i = 0; i < softList.length; i++) {
+        const slot = slots[i];
+        const m = softList[i];
+        const clipped = clipForBudget(m.text, per);
 
-  softViews.push({
-    key: `msg_${seq}_soft_${i}_${m.id}`,
-    text: clipped,
-    x: slot.x,
-    y: slot.y,
-    s: 0.96 + Math.random() * 0.10,
-    color: pickOne(MSG_COLORS),
-  });
-}
+        softViews.push({
+          key: `msg_${seq}_soft_${i}_${m.id}`,
+          text: clipped,
+          x: slot.x,
+          y: slot.y,
+          s: 0.96 + Math.random() * 0.10,
+          color: pickOne(MSG_COLORS),
+        });
+      }
 
-// ✅ hard（上層）を後ろに足す＝上に表示される
-const hardViewsTop = hardViews.map((v, i) => ({
-  ...v,
-  key: `msg_${seq}_hard_${i}_${v.key}`,
-}));
+      // ✅ hard（上層）を後ろに足す＝上に表示される
+      const hardViewsTop = hardViews.map((v, i) => ({
+        ...v,
+        key: `msg_${seq}_hard_${i}_${v.key}`,
+      }));
 
-setMsgViews([...softViews, ...hardViewsTop]);
-
+      setMsgViews([...softViews, ...hardViewsTop]);
     };
 
     tick();
@@ -794,12 +793,14 @@ setMsgViews([...softViews, ...hardViewsTop]);
     // ✅ 既に見ていればロゴ無し＋ふわっとだけ
     if (already && !forceLogo) {
       setShowLogo(false);
+      setLogoDecided(true); // ✅ 追加：判定完了
       triggerHomeFade();
       return;
     }
 
     // ✅ 初回（or 強制）はロゴを出す（Homeは常に裏で描画）
     setShowLogo(true);
+    setLogoDecided(true); // ✅ 追加：判定完了（ロゴ出す）
     setLogoLoaded(false);
 
     const img = new Image();
@@ -924,7 +925,9 @@ setMsgViews([...softViews, ...hardViewsTop]);
 
   const blockTap = showLogo || !homeReady;
   const uiBlocking = profileOpen || profileClosing || msgOpen || secretVisible;
-  const showProfileButton = homeReady && !showLogo && !secretSrc;
+
+  // ✅ ロゴ判定が終わるまではProfileボタンも出さない（ロゴ前の先出し封じ）
+  const showProfileButton = logoDecided && homeReady && !showLogo && !secretSrc;
 
   const nameLines = PROFILE_NAME.split("\n").map((s) => s.trim()).filter(Boolean);
 
@@ -938,6 +941,20 @@ setMsgViews([...softViews, ...hardViewsTop]);
         touchAction: "manipulation",
       }}
     >
+      {/* ✅ ロゴ判定が終わるまで全面黒（ハンバーガー等の先出し封じ） */}
+      {!logoDecided && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2147483646,
+            background: "#000",
+            pointerEvents: "all",
+          }}
+        />
+      )}
+
       {/* ✅ Homeは常に描画（黒フリーズ防止）。ロゴは上に被さるだけ */}
       <HomeClient images={images} />
 
@@ -1132,7 +1149,7 @@ setMsgViews([...softViews, ...hardViewsTop]);
             style={{
               position: "fixed",
               inset: 0,
-              zIndex: 999999,
+              zIndex: 2147483647, // ✅ 黒カバーより上
               background: LOGO_BG,
               display: "grid",
               placeItems: "center",
