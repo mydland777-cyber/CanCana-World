@@ -683,7 +683,7 @@ export default function HomeInteractive({
       const vw = typeof window !== "undefined" ? Math.max(1, window.innerWidth || 1) : 1;
       const vh = typeof window !== "undefined" ? Math.max(1, window.innerHeight || 1) : 1;
 
-      const hardLimit = isMobile ? 200 : 500;
+      const hardLimit = isMobile ? 300 : 500;
       const hardChosen = chosen.slice(0, Math.min(take, hardLimit));
 
       // 前半：被らない努力（置けないものは spill）
