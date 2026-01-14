@@ -313,7 +313,7 @@ function estimateBoxPx(text: string, isMobile: boolean, vw: number) {
   const fontSize = isMobile ? WALL_FONT_MOBILE : WALL_FONT_PC;
   const mw = maxWidthPx(isMobile, vw);
 
-  const charW = fontSize * 1.02; // 少し強めに見積もる（安全側）
+  const charW = fontSize * 1.18; // 少し強めに見積もる（安全側）
   const linesByNewline = Math.max(1, (text.split("\n").length || 1));
   const plainLen = Math.max(1, text.length);
   const estTextW = plainLen * charW;
@@ -324,7 +324,7 @@ function estimateBoxPx(text: string, isMobile: boolean, vw: number) {
   const w = Math.min(mw, Math.max(42, Math.min(mw, estTextW)));
   const h = Math.max(18, lines * fontSize * WALL_LINE_HEIGHT);
 
-  const pad = 14; // 影/ブレ分
+  const pad = 26; // 影/ブレ分
   return { w: w + pad, h: h + pad };
 }
 
@@ -342,7 +342,7 @@ function buildNonOverlappingViewsWithSpill(args: {
   const views: MsgView[] = [];
   const spill: StoredMsg[] = [];
 
-  const gap = 12;
+  const gap = 18;
 
   // 元の雰囲気を崩さない範囲（%）
   const minX = 6;
@@ -683,7 +683,7 @@ export default function HomeInteractive({
       const vw = typeof window !== "undefined" ? Math.max(1, window.innerWidth || 1) : 1;
       const vh = typeof window !== "undefined" ? Math.max(1, window.innerHeight || 1) : 1;
 
-      const hardLimit = isMobile ? 100 : 500;
+      const hardLimit = isMobile ? 60 : 500;
       const hardChosen = chosen.slice(0, Math.min(take, hardLimit));
 
       // 前半：被らない努力（置けないものは spill）
