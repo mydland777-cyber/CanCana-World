@@ -283,7 +283,8 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
 
   const current = textIndex >= 0 ? items[textIndex] : null;
 
-  const fontSize = useMemo(() => {
+  // ✅ 元のロジック（PCは絶対に変えない）
+  const baseFontSize = useMemo(() => {
     const len = current?.text?.length ?? 0;
 
     if (isMobile) {
@@ -305,6 +306,77 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     return isMobile ? 1.6 : 2.15;
   }, [isMobile]);
 
+  // ============================
+  // ✅ 追加：スマホだけ「行折り返し防止」フォント自動フィット
+  // ============================
+  const poemRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const [fitFontSizeMobile, setFitFontSizeMobile] = useState<number | null>(null);
+
+  const ready = items.length > 0 && front >= 0 && back >= 0 && textIndex >= 0 && !!current;
+
+  // スマホ時：最長行が折り返さないように縮める（縮めるだけ / PCは一切触らない）
+  useEffect(() => {
+    if (!isMobile) {
+      setFitFontSizeMobile(null);
+      return;
+    }
+    if (!ready) return;
+    if (!current?.text) return;
+    if (!poemRef.current) return;
+    if (!measureRef.current) return;
+
+    // 計測対象は「原文の各行」だけ（改行位置は維持）
+    const lines = current.text.split("\n");
+    const longestLine = lines.reduce((a, b) => (b.length > a.length ? b : a), "");
+
+    // 空行しかない場合
+    if (!longestLine.trim()) {
+      setFitFontSizeMobile(baseFontSize);
+      return;
+    }
+
+    const el = poemRef.current;
+    const cs = window.getComputedStyle(el);
+
+    const padL = parseFloat(cs.paddingLeft || "0") || 0;
+    const padR = parseFloat(cs.paddingRight || "0") || 0;
+
+    // このdiv内に収めたい「中身の横幅」
+    const contentW = Math.max(1, el.clientWidth - padL - padR);
+
+    // 計測用divへ（最長行だけ測ればOK）
+    const m = measureRef.current;
+    m.style.letterSpacing = "0.05em";
+    m.style.whiteSpace = "pre";
+    m.style.fontSize = `${baseFontSize}px`;
+    m.textContent = longestLine;
+
+    const measureW0 = m.getBoundingClientRect().width;
+
+    // すでに収まるならそのまま
+    if (measureW0 <= contentW) {
+      setFitFontSizeMobile(baseFontSize);
+      return;
+    }
+
+    // 収まるまで縮める（下限つき）
+    let next = Math.max(10, Math.floor(baseFontSize * (contentW / measureW0)));
+
+    // 念のため、丸め誤差で溢れることがあるので再測定して微調整
+    for (let i = 0; i < 8; i++) {
+      m.style.fontSize = `${next}px`;
+      const w = m.getBoundingClientRect().width;
+      if (w <= contentW) break;
+      next = Math.max(10, next - 1);
+      if (next <= 10) break;
+    }
+
+    setFitFontSizeMobile(next);
+  }, [isMobile, ready, current?.text, baseFontSize]);
+
+  const fontSize = isMobile ? fitFontSizeMobile ?? baseFontSize : baseFontSize;
+
   const bgImgStyle = {
     position: "absolute" as const,
     inset: 0,
@@ -312,8 +384,6 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
     height: "100%",
     objectFit: "cover" as const,
   };
-
-  const ready = items.length > 0 && front >= 0 && back >= 0 && textIndex >= 0 && !!current;
 
   return (
     <main
@@ -436,15 +506,34 @@ export default function PoemsClient({ items }: { items: PoemItem[] }) {
             }}
           />
 
+          {/* ✅ スマホ計測用（見えない） */}
+          <div
+            aria-hidden
+            ref={measureRef}
+            style={{
+              position: "fixed",
+              left: -99999,
+              top: -99999,
+              visibility: "hidden",
+              pointerEvents: "none",
+              whiteSpace: "pre",
+              letterSpacing: "0.05em",
+            }}
+          />
+
           {/* 詩 */}
           <div
+            ref={poemRef}
             style={{
               position: "relative",
               zIndex: 5,
               maxWidth: 760,
               width: "100%",
               textAlign: "center",
-              whiteSpace: "pre-wrap",
+
+              // ✅ スマホだけ：折り返し禁止（改行は維持）
+              whiteSpace: isMobile ? "pre" : "pre-wrap",
+
               fontSize,
               lineHeight,
               letterSpacing: "0.05em",
