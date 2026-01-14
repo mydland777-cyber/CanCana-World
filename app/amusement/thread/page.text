@@ -1,0 +1,38 @@
+// app/amusement/thread/page.tsx
+import type { Metadata } from "next";
+import Link from "next/link";
+import ThreadGame from "./ThreadGame";
+
+export const metadata: Metadata = {
+  title: "Thread | Amusement | CanCana World",
+  description: "長押しで上昇、離すと下降。針孔を通してスコアを稼ぐ糸通しゲーム。",
+  alternates: { canonical: "/amusement/thread" },
+  openGraph: {
+    title: "Thread | Amusement | CanCana World",
+    description: "長押しで上昇、離すと下降。針孔を通してスコアを稼ぐ糸通しゲーム。",
+    url: "/amusement/thread",
+  },
+  robots: { index: true, follow: true },
+};
+
+export default function ThreadPage() {
+  return (
+    <main style={{ padding: "18px 12px", maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        <Link
+          href="/amusement"
+          style={{ textDecoration: "none", opacity: 0.9, fontSize: 14 }}
+        >
+          ← Amusement
+        </Link>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>糸通し</h1>
+      </div>
+
+      <p style={{ opacity: 0.85, marginTop: 0, marginBottom: 12 }}>
+        操作：画面を<strong>長押し</strong>（またはクリック押しっぱ）で上昇、離すと下降🧵
+      </p>
+
+      <ThreadGame />
+    </main>
+  );
+}
