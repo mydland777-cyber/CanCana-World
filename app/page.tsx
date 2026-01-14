@@ -7,11 +7,29 @@ import HomeInteractive from "./HomeInteractive";
 export const metadata: Metadata = {
   title: "CanCana World",
   description:
-    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。最新情報、作品、サポート、コンタクトはこちら。",
+    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。アーティスト／役者としての活動に加え、TikTok LIVEでもライバーとして配信中。最新情報、作品、サポート、コンタクトはこちら。",
+  keywords: [
+    "CanCana",
+    "星空奏",
+    "ほしぞらかな",
+    "TikTokライバー",
+    "TikTok LIVE",
+    "ライバー",
+    "配信者",
+    "ライブ配信",
+    "アーティスト",
+    "役者",
+    "音楽",
+    "詩",
+    "ビジュアル",
+    "ゲーム",
+    "CanCana World",
+  ],
   alternates: { canonical: "/" },
   openGraph: {
     title: "CanCana World",
-    description: "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。",
+    description:
+      "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。アーティスト／役者として活動しつつ、TikTok LIVEでもライバーとして配信中。",
     url: "/",
     siteName: "CanCana World",
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "CanCana World" }],
@@ -97,7 +115,11 @@ export default function HomePage({
         </div>
       )}
 
-      <HomeInteractive images={images} luckyImages={luckyImages} skullImages={skullImages} />
+      <HomeInteractive
+        images={images}
+        luckyImages={luckyImages}
+        skullImages={skullImages}
+      />
     </>
   );
 }
