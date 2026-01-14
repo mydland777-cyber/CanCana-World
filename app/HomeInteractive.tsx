@@ -281,6 +281,134 @@ function makeRandomSlots(count: number, isMobile: boolean): Slot[] {
   return slots;
 }
 
+// ===============================
+// ✅ 追加：矩形で「被らない努力」するためのユーティリティ
+// ===============================
+type Rect = { x: number; y: number; w: number; h: number };
+
+function rectHit(a: Rect, b: Rect, gap = 10) {
+  return !(
+    a.x + a.w + gap < b.x ||
+    b.x + b.w + gap < a.x ||
+    a.y + a.h + gap < b.y ||
+    b.y + b.h + gap < a.y
+  );
+}
+
+// maxWidth（min(360px, 34vw) 等）を px に近似
+function maxWidthPx(isMobile: boolean, vw: number) {
+  const v = Math.max(320, vw || 0);
+  return isMobile ? Math.min(320, v * 0.5) : Math.min(360, v * 0.34);
+}
+
+// 文字箱サイズを安全側に推定（被り防止優先）
+function estimateBoxPx(text: string, isMobile: boolean, vw: number) {
+  const fontSize = isMobile ? WALL_FONT_MOBILE : WALL_FONT_PC;
+  const mw = maxWidthPx(isMobile, vw);
+
+  const charW = fontSize * 0.98; // 安全側（日本語多め）
+  const linesByNewline = Math.max(1, (text.split("\n").length || 1));
+  const plainLen = Math.max(1, text.length);
+  const estTextW = plainLen * charW;
+
+  const linesByWrap = Math.max(1, Math.ceil(estTextW / mw));
+  const lines = Math.max(linesByNewline, linesByWrap);
+
+  const w = Math.min(mw, Math.max(42, Math.min(mw, estTextW)));
+  const h = Math.max(18, lines * fontSize * WALL_LINE_HEIGHT);
+
+  const pad = 8;
+  return { w: w + pad, h: h + pad };
+}
+
+// 「被らない努力」→ 置けないものは spill へ（後で被ってOK枠に回す）
+function buildNonOverlappingViewsWithSpill(args: {
+  seq: number;
+  chosen: StoredMsg[];
+  perChars: number;
+  isMobile: boolean;
+  vw: number;
+  vh: number;
+}) {
+  const { seq, chosen, perChars, isMobile, vw, vh } = args;
+
+  const placed: Rect[] = [];
+  const views: MsgView[] = [];
+  const spill: StoredMsg[] = [];
+
+  const gap = 10;
+
+  // 元の雰囲気を崩さない範囲（%）
+  const minX = 6;
+  const maxX = 94;
+  const minY = 10;
+  const maxY = 90;
+
+  // 試行回数：数が多いほど軽めに（2.5秒ごとに回るので）
+  const triesPer = chosen.length >= 350 ? 40 : chosen.length >= 200 ? 60 : 90;
+
+  for (let i = 0; i < chosen.length; i++) {
+    const m = chosen[i];
+    const clipped = clipForBudget(m.text, perChars);
+
+    const s = 0.96 + Math.random() * 0.10;
+    const est = estimateBoxPx(clipped, isMobile, vw);
+
+    const w = est.w * s;
+    const h = est.h * s;
+
+    let ok = false;
+    let rect: Rect = { x: 0, y: 0, w, h };
+
+    for (let t = 0; t < triesPer; t++) {
+      const px = minX + Math.random() * (maxX - minX);
+      const py = minY + Math.random() * (maxY - minY);
+
+      const avoidTopRight = px > 72 && py < 18;
+      const avoidBottomLeft = px < 32 && py > 74;
+      if (avoidTopRight || avoidBottomLeft) continue;
+
+      // center(%)->px -> rect(top-left)
+      const cx = (px / 100) * vw;
+      const cy = (py / 100) * vh;
+      const x = clamp(cx - w / 2, 0, Math.max(0, vw - w));
+      const y = clamp(cy - h / 2, 0, Math.max(0, vh - h));
+      rect = { x, y, w, h };
+
+      let collide = false;
+      for (let k = 0; k < placed.length; k++) {
+        if (rectHit(rect, placed[k], gap)) {
+          collide = true;
+          break;
+        }
+      }
+      if (collide) continue;
+
+      ok = true;
+
+      placed.push(rect);
+
+      const outX = ((rect.x + rect.w / 2) / vw) * 100;
+      const outY = ((rect.y + rect.h / 2) / vh) * 100;
+
+      views.push({
+        key: `msg_${seq}_${i}_${m.id}`,
+        text: clipped,
+        x: clamp(outX, 2, 98),
+        y: clamp(outY, 2, 98),
+        s,
+        color: pickOne(MSG_COLORS),
+      });
+
+      break;
+    }
+
+    if (!ok) spill.push(m);
+  }
+
+  return { views, spill };
+}
+
 // ===== Supabase REST =====
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -485,6 +613,7 @@ export default function HomeInteractive({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ ここだけ：表示ロジック（スマホ100まで被らない努力、それ以降OK / PCは500まで）
   useEffect(() => {
     if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
     msgCycleRef.current = null;
@@ -526,20 +655,39 @@ export default function HomeInteractive({
       }
 
       const totalBudget = isMobile ? WALL_CHAR_BUDGET_MOBILE : WALL_CHAR_BUDGET_PC;
-      const perAuto = Math.floor(totalBudget / take);
+      const perAuto = Math.floor(totalBudget / Math.max(1, take));
       const perMax = isMobile ? WALL_MAX_CHARS_PER_MSG_MOBILE : WALL_MAX_CHARS_PER_MSG_PC;
       const per = clamp(perAuto, WALL_MIN_CHARS_PER_MSG, perMax);
 
-      const slots = makeRandomSlots(take, isMobile);
+      const vw = Math.max(1, window.innerWidth || 1);
+      const vh = Math.max(1, window.innerHeight || 1);
 
-      const views: MsgView[] = [];
-      for (let i = 0; i < take; i++) {
+      // ✅ “被らない努力” の上限：スマホ=100 / PC=500
+      const hardLimit = isMobile ? 100 : 500;
+      const hardChosen = chosen.slice(0, Math.min(take, hardLimit));
+
+      // ✅ 前半：被らない努力（置けない分は spill に回す）
+      const { views: hardViews, spill } = buildNonOverlappingViewsWithSpill({
+        seq,
+        chosen: hardChosen,
+        perChars: per,
+        isMobile,
+        vw,
+        vh,
+      });
+
+      // ✅ 後半：被ってOK（＋ spill もここに混ぜる）
+      const softList = [...spill, ...chosen.slice(hardChosen.length)];
+      const slots = makeRandomSlots(softList.length, isMobile);
+
+      const views: MsgView[] = [...hardViews];
+      for (let i = 0; i < softList.length; i++) {
         const slot = slots[i];
-        const m = chosen[i];
+        const m = softList[i];
         const clipped = clipForBudget(m.text, per);
 
         views.push({
-          key: `msg_${seq}_${i}_${m.id}`,
+          key: `msg_${seq}_${hardViews.length + i}_${m.id}`,
           text: clipped,
           x: slot.x,
           y: slot.y,
