@@ -1161,7 +1161,7 @@ export default function HomeInteractive({
                   : `logoOverlay ${logoTotal}ms linear forwards`,
             }}
           >
-            Logo overlay
+            {/* Logo overlay */}
           </div>
 
           <style>{`
