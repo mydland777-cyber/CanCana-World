@@ -469,7 +469,21 @@ export default function HomeInteractive({
   const [homeReady, setHomeReady] = useState(true);
 
   // ✅ 初期は false（毎回ロゴが一瞬出るのを防ぐ）
-  const [showLogo, setShowLogo] = useState(false);
+  const [showLogo, setShowLogo] = useState(() => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const forceLogo = new URLSearchParams(window.location.search).get("logo") === "1";
+    if (forceLogo) return true;
+
+    const already = sessionStorage.getItem(LOGO_ONCE_KEY) === "1";
+    // ✅ まだ見てないセッションなら、初回フレームからロゴを出してピカッを封じる
+    return !already;
+  } catch {
+    return false;
+  }
+});
+
   const [logoLoaded, setLogoLoaded] = useState(false);
   const logoBootedRef = useRef(false);
 
