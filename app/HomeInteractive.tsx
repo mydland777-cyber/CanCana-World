@@ -16,7 +16,7 @@ const MSG_TTL_MS = 24 * 60 * 60 * 1000;
 const MSG_FETCH_MS = 15000;
 
 const MSG_IN_MS = 520;
-const MSG_HOLD_MS = 2500;
+const MSG_HOLD_MS = 3500;
 const MSG_OUT_MS = 520;
 const MSG_CYCLE_MS = MSG_IN_MS + MSG_HOLD_MS + MSG_OUT_MS;
 
