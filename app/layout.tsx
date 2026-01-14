@@ -25,13 +25,33 @@ export const metadata: Metadata = {
   },
 
   description:
-    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。最新情報、作品、サポート、コンタクトはこちら。",
+    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。アーティスト／役者としての活動に加え、TikTok LIVEでもライバーとして配信中。最新情報、作品、サポート、コンタクトはこちら。",
+
+  // （任意だけど効く）サイト全体のキーワード
+  keywords: [
+    "CanCana",
+    "星空奏",
+    "ほしぞらかな",
+    "TikTokライバー",
+    "TikTok LIVE",
+    "ライバー",
+    "配信者",
+    "ライブ配信",
+    "アーティスト",
+    "役者",
+    "音楽",
+    "詩",
+    "ビジュアル",
+    "ゲーム",
+    "CanCana World",
+  ],
 
   alternates: { canonical: "/" },
 
   openGraph: {
     title: "CanCana World",
-    description: "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。",
+    description:
+      "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。アーティスト／役者として活動しつつ、TikTok LIVEでもライバーとして配信中。",
     url: "/",
     siteName: "CanCana World",
     locale: "ja_JP",
@@ -42,7 +62,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "CanCana World",
-    description: "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。",
+    description:
+      "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。TikTok LIVEでもライバーとして配信中。",
     images: ["/og.png"],
   },
 
@@ -60,7 +81,8 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const jsonLd = {
+  // 既存：サイト（WebSite）
+  const siteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "CanCana World",
@@ -72,6 +94,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       "https://www.tiktok.com/@cancana_hitomina",
       "https://www.instagram.com/cancana_4u?igsh=cDYyczluaHB3ODdp",
     ],
+  };
+
+  // 追加：人物（Person）＝TikTokライバーとしても明示
+  const personJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: "CanCana",
+    alternateName: ["星空 奏", "ほしぞら かな"],
+    description:
+      "アーティスト／役者として活動しつつ、TikTok LIVEでもライバーとして配信中。",
+    jobTitle: ["Artist", "Actor", "TikTok LIVE Streamer"],
+    url: SITE_URL,
+    sameAs: siteJsonLd.sameAs,
   };
 
   return (
@@ -97,10 +132,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
 
       <body>
+        {/* 構造化データ（サイト） */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
         />
+        {/* 構造化データ（人物） */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+        />
+
         <TransitionProvider>
           <SiteMenu />
           {children}
