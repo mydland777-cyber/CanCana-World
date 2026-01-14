@@ -697,26 +697,34 @@ export default function HomeInteractive({
       });
 
       // 後半：被ってOK（spill + 残り）
-      const softList = [...spill, ...chosen.slice(hardChosen.length)];
-      const slots = makeRandomSlots(softList.length, isMobile);
+const softList = [...spill, ...chosen.slice(hardChosen.length)];
+const slots = makeRandomSlots(softList.length, isMobile);
 
-      const views: MsgView[] = [...hardViews];
-      for (let i = 0; i < softList.length; i++) {
-        const slot = slots[i];
-        const m = softList[i];
-        const clipped = clipForBudget(m.text, per);
+// ✅ 先に soft（下層）を作る
+const softViews: MsgView[] = [];
+for (let i = 0; i < softList.length; i++) {
+  const slot = slots[i];
+  const m = softList[i];
+  const clipped = clipForBudget(m.text, per);
 
-        views.push({
-          key: `msg_${seq}_${hardViews.length + i}_${m.id}`,
-          text: clipped,
-          x: slot.x,
-          y: slot.y,
-          s: 0.96 + Math.random() * 0.10,
-          color: pickOne(MSG_COLORS),
-        });
-      }
+  softViews.push({
+    key: `msg_${seq}_soft_${i}_${m.id}`,
+    text: clipped,
+    x: slot.x,
+    y: slot.y,
+    s: 0.96 + Math.random() * 0.10,
+    color: pickOne(MSG_COLORS),
+  });
+}
 
-      setMsgViews(views);
+// ✅ hard（上層）を後ろに足す＝上に表示される
+const hardViewsTop = hardViews.map((v, i) => ({
+  ...v,
+  key: `msg_${seq}_hard_${i}_${v.key}`,
+}));
+
+setMsgViews([...softViews, ...hardViewsTop]);
+
     };
 
     tick();
