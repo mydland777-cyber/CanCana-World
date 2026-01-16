@@ -184,6 +184,24 @@ function msUntilNext6am() {
   return next.getTime() - now.getTime();
 }
 
+function msgDayStartMs(dayKey: string) {
+  // dayKey: "YYYY-MM-DD" をローカル時刻の 06:00 にする
+  const [y, m, d] = dayKey.split("-").map((n) => Number(n));
+  const dt = new Date();
+  dt.setFullYear(y, (m ?? 1) - 1, d ?? 1);
+  dt.setHours(6, 0, 0, 0);
+  return dt.getTime();
+}
+function msgDayRangeMs(dayKey: string) {
+  const start = msgDayStartMs(dayKey);
+  const end = start + 24 * 60 * 60 * 1000;
+  return { start, end };
+}
+function withinMsgDay(ts: number, dayKey: string) {
+  const { start, end } = msgDayRangeMs(dayKey);
+  return ts >= start && ts < end;
+}
+
 function pickOne<T>(list: readonly T[] | T[]) {
   return list[Math.floor(Math.random() * list.length)];
 }
@@ -201,9 +219,6 @@ type StoredMsg = { id: string; text: string; ts: number };
 type Slot = { x: number; y: number };
 type MsgView = { key: string; text: string; x: number; y: number; s: number; color: string };
 
-function within24h(ts: number) {
-  return Date.now() - ts <= MSG_TTL_MS;
-}
 function normalizeBannedWords(list: readonly string[]) {
   return list.map((s) => (s ?? "").trim()).filter((s) => s.length > 0);
 }
@@ -423,11 +438,17 @@ const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const USE_SUPABASE = Boolean(SB_URL && SB_KEY);
 
-async function sbFetchMessages24h(): Promise<StoredMsg[]> {
-  const since = new Date(Date.now() - MSG_TTL_MS).toISOString();
+async function sbFetchMessagesByMsgDay(dayKey: string): Promise<StoredMsg[]> {
+  const { start, end } = msgDayRangeMs(dayKey);
+  const since = new Date(start).toISOString();
+  const until = new Date(end).toISOString();
+
   const url =
     `${SB_URL}/rest/v1/home_messages?` +
-    `select=id,text,created_at&created_at=gte.${encodeURIComponent(since)}&order=created_at.desc&limit=1000`;
+    `select=id,text,created_at` +
+    `&created_at=gte.${encodeURIComponent(since)}` +
+    `&created_at=lt.${encodeURIComponent(until)}` +
+    `&order=created_at.desc&limit=1000`;
 
   const res = await fetch(url, {
     headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
@@ -438,6 +459,7 @@ async function sbFetchMessages24h(): Promise<StoredMsg[]> {
   const rows = (await res.json()) as Array<{ id: string; text: string; created_at: string }>;
   return rows.map((r) => ({ id: r.id, text: r.text, ts: new Date(r.created_at).getTime() }));
 }
+
 async function sbInsertMessage(text: string): Promise<void> {
   const url = `${SB_URL}/rest/v1/home_messages`;
   const res = await fetch(url, {
@@ -547,7 +569,7 @@ export default function HomeInteractive({
   const doneKey = `cancana_secret_done_${day0}`;
 
   const msgTapKey = `cancana_msg_taps_${msgDay}`;
-  const localMsgKey = `cancana_msgs_24h`;
+  const localMsgKey = `cancana_msgs_${msgDay}`;
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
 
@@ -614,12 +636,26 @@ export default function HomeInteractive({
     };
   }, [msgDay]);
 
+  useEffect(() => {
+  const sync = () => setMsgDay(dayKey6am());
+  const onVis = () => {
+    if (!document.hidden) sync();
+  };
+  window.addEventListener("focus", sync);
+  document.addEventListener("visibilitychange", onVis);
+  return () => {
+    window.removeEventListener("focus", sync);
+    document.removeEventListener("visibilitychange", onVis);
+  };
+}, []);
+
   const refreshMessages = async () => {
     try {
       if (USE_SUPABASE) {
-        const list = await sbFetchMessages24h();
-        setMsgList(list.filter((m) => within24h(m.ts)));
-      } else {
+        const list = await sbFetchMessagesByMsgDay(msgDay);
+        setMsgList(list.filter((m) => withinMsgDay(m.ts, msgDay)));
+    } else {
+
         const raw = localStorage.getItem(localMsgKey);
         const arr = raw ? (JSON.parse(raw) as unknown) : [];
         const parsed: StoredMsg[] = Array.isArray(arr)
@@ -631,7 +667,7 @@ export default function HomeInteractive({
               }))
               .filter((m) => m.id && m.text && Number.isFinite(m.ts)) as StoredMsg[])
           : [];
-        const pruned = parsed.filter((m) => within24h(m.ts)).slice(0, 1000);
+        const pruned = parsed.filter((m) => withinMsgDay(m.ts, msgDay)).slice(0, 1000);
         setMsgList(pruned);
         localStorage.setItem(localMsgKey, JSON.stringify(pruned));
       }
@@ -639,22 +675,22 @@ export default function HomeInteractive({
   };
 
   useEffect(() => {
-    refreshMessages();
+  refreshMessages();
+  if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
+  msgFetchRef.current = window.setInterval(() => refreshMessages(), MSG_FETCH_MS);
+  return () => {
     if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
-    msgFetchRef.current = window.setInterval(() => refreshMessages(), MSG_FETCH_MS);
-    return () => {
-      if (msgFetchRef.current) window.clearInterval(msgFetchRef.current);
-      msgFetchRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    msgFetchRef.current = null;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [msgDay]);
 
   // ✅ メッセージ表示（スマホ=最初300/PC=最初500は被らない努力）
   useEffect(() => {
     if (msgCycleRef.current) window.clearInterval(msgCycleRef.current);
     msgCycleRef.current = null;
 
-    const base = msgList.filter((m) => within24h(m.ts));
+    const base = msgList.filter((m) => withinMsgDay(m.ts, msgDay));
     if (base.length === 0) {
       setMsgViews([]);
       return;
@@ -909,7 +945,7 @@ export default function HomeInteractive({
           text: clipped,
           ts: Date.now(),
         };
-        const next = [item, ...msgList].filter((mm) => within24h(mm.ts)).slice(0, 1000);
+        const next = [item, ...msgList].filter((mm) => withinMsgDay(mm.ts, msgDay)).slice(0, 1000);
         setMsgList(next);
         localStorage.setItem(localMsgKey, JSON.stringify(next));
       }
