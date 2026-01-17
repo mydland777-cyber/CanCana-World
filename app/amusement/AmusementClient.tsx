@@ -139,7 +139,7 @@ export default function AmusementClient() {
             background:
               "radial-gradient(1200px 500px at 20% 10%, rgba(255,255,255,0.10), transparent 60%)," +
               "radial-gradient(900px 400px at 80% 20%, rgba(255,255,255,0.08), transparent 55%)," +
-              "linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.28))",
+              "linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.28))",
           }}
           onMouseLeave={() => emitFocus({ mode: "idle", ring: 0 })}
         >
