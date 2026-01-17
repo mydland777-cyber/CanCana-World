@@ -171,6 +171,7 @@ export default function SiteMenu() {
           opacity: 0.45;
           pointer-events: none;
           background: rgba(255,255,255,0.04);
+          cursor: not-allowed;
         }
         .note{
           font-size: 12px;
