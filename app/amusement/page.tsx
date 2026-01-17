@@ -1,6 +1,7 @@
 // app/amusement/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
+import PhaserBackdrop from "./PhaserBackdrop";
 
 const TITLE = "Amusement | CanCana World";
 const DESC =
@@ -31,9 +32,9 @@ type GameItem = {
   desc: string;
   controls: string;
   thumb?: string; // TODO: publicにWebPを置く（例: /amusement/thumbs/xxx.webp）
-  href?: string; // 外部 or 内部
+  href?: string;
   comingSoon?: boolean;
-  tag?: string; // 例: "Unity" / "Phaser" / "Coming Soon"
+  tag?: string;
 };
 
 const ITEMS: GameItem[] = [
@@ -66,15 +67,14 @@ const ITEMS: GameItem[] = [
   },
 ];
 
+function emitFocus(detail: Partial<{ x: number; y: number; ring: number; mode: "idle" | "hover" | "coming" }>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cancana-amuse-focus", { detail }));
+}
+
 export default function AmusementPage() {
   return (
-    <main
-      style={{
-        padding: "32px 16px",
-        maxWidth: 980,
-        margin: "0 auto",
-      }}
-    >
+    <main style={{ padding: "32px 16px", maxWidth: 980, margin: "0 auto" }}>
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 8px" }}>
           Amusement
@@ -128,39 +128,15 @@ export default function AmusementPage() {
             "radial-gradient(900px 400px at 80% 20%, rgba(255,255,255,0.06), transparent 55%)," +
             "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
         }}
+        onMouseLeave={() => emitFocus({ mode: "idle", ring: 0 })}
       >
-        {/* 演出（いまはCSSのみ。次の手でここにPhaser背景レイヤーを差し込める設計にしてる） */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: -40,
-            background:
-              "conic-gradient(from 180deg, rgba(255,255,255,0.00), rgba(255,255,255,0.08), rgba(255,255,255,0.00))",
-            filter: "blur(18px)",
-            opacity: 0.55,
-            transform: "translateZ(0)",
-            animation: "cancanaSpin 10s linear infinite",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.10), transparent 45%)," +
-              "radial-gradient(circle at 70% 55%, rgba(255,255,255,0.08), transparent 50%)",
-            opacity: 0.7,
-            animation: "cancanaFloat 3.2s ease-in-out infinite",
-            pointerEvents: "none",
-          }}
-        />
+        {/* Phaser背景（背面） */}
+        <PhaserBackdrop />
 
         <ul
           style={{
             position: "relative",
+            zIndex: 1,
             listStyle: "none",
             padding: 0,
             margin: 0,
@@ -177,8 +153,32 @@ export default function AmusementPage() {
                 background: "rgba(255,255,255,0.03)",
                 overflow: "hidden",
               }}
+              onMouseEnter={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const x = (r.left + r.width * 0.25) / window.innerWidth;
+                const y = (r.top + r.height * 0.5) / window.innerHeight;
+                emitFocus({
+                  x,
+                  y,
+                  ring: 1,
+                  mode: it.comingSoon ? "coming" : "hover",
+                });
+              }}
+              onMouseMove={(e) => {
+                const x = e.clientX / window.innerWidth;
+                const y = e.clientY / window.innerHeight;
+                emitFocus({ x, y, ring: 1, mode: it.comingSoon ? "coming" : "hover" });
+              }}
+              onFocus={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const x = (r.left + r.width * 0.25) / window.innerWidth;
+                const y = (r.top + r.height * 0.5) / window.innerHeight;
+                emitFocus({ x, y, ring: 1, mode: it.comingSoon ? "coming" : "hover" });
+              }}
+              onBlur={() => emitFocus({ mode: "idle", ring: 0 })}
             >
               <div
+                className="amuse_row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "200px 1fr",
@@ -196,7 +196,6 @@ export default function AmusementPage() {
                     position: "relative",
                   }}
                 >
-                  {/* うっすらオーバーレイ */}
                   <div
                     aria-hidden
                     style={{
@@ -220,9 +219,7 @@ export default function AmusementPage() {
                       marginBottom: 6,
                     }}
                   >
-                    <div style={{ fontWeight: 900, fontSize: 18 }}>
-                      {it.title}
-                    </div>
+                    <div style={{ fontWeight: 900, fontSize: 18 }}>{it.title}</div>
 
                     {it.tag && (
                       <span
@@ -240,9 +237,7 @@ export default function AmusementPage() {
                     )}
                   </div>
 
-                  <div style={{ opacity: 0.86, lineHeight: 1.6 }}>
-                    {it.desc}
-                  </div>
+                  <div style={{ opacity: 0.86, lineHeight: 1.6 }}>{it.desc}</div>
 
                   <div
                     style={{
@@ -303,28 +298,15 @@ export default function AmusementPage() {
                   </div>
                 </div>
               </div>
-
-              {/* スマホで崩れないように */}
-              <style
-                dangerouslySetInnerHTML={{
-                  __html: `
-                    @media (max-width: 640px){
-                      li[key="${it.id}"]{}
-                    }
-                  `,
-                }}
-              />
             </li>
           ))}
         </ul>
 
-        {/* keyframes */}
         <style
           dangerouslySetInnerHTML={{
             __html: `
               @keyframes cancanaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
               @keyframes cancanaFloat { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-
               @media (max-width: 640px){
                 .amuse_row{ grid-template-columns: 1fr !important; }
               }
