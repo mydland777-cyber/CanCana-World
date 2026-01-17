@@ -106,10 +106,16 @@ export default function AmusementClient() {
           padding: 16,
           position: "relative",
           overflow: "hidden",
-          background:
-            "radial-gradient(1200px 500px at 20% 10%, rgba(255,255,255,0.08), transparent 60%)," +
-            "radial-gradient(900px 400px at 80% 20%, rgba(255,255,255,0.06), transparent 55%)," +
-            "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
+          backgroundImage:
+  "linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0.55))," +
+  "url(/amusement/bg.webp)," +
+  "radial-gradient(1200px 500px at 20% 10%, rgba(255,255,255,0.08), transparent 60%)," +
+  "radial-gradient(900px 400px at 80% 20%, rgba(255,255,255,0.06), transparent 55%)," +
+  "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
+backgroundSize: "cover, cover, auto, auto, auto",
+backgroundPosition: "center, center, center, center, center",
+backgroundRepeat: "no-repeat, no-repeat, no-repeat, no-repeat, no-repeat",
+
         }}
         onMouseLeave={() => emitFocus({ mode: "idle", ring: 0 })}
       >
