@@ -130,25 +130,6 @@ export default function AmusementPage() {
             >
               Homeへ戻る
             </Link>
-
-            {/* 既存ミニゲーム導線（残しておくと親切） */}
-            <Link
-              href="/amusement/thread"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "12px 14px",
-                borderRadius: 999,
-                textDecoration: "none",
-                fontWeight: 700,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.04)",
-                opacity: 0.9,
-              }}
-            >
-              糸通しへ
-            </Link>
           </div>
 
           <p style={{ marginTop: 14, opacity: 0.72, fontSize: 13 }}>
