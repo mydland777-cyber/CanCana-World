@@ -57,7 +57,25 @@ function emitFocus(
 
 export default function AmusementClient() {
   return (
-    <main style={{ padding: "32px 16px", maxWidth: 980, margin: "0 auto" }}>
+    <main style={{
+  padding: "32px 16px",
+  maxWidth: 980,
+  margin: "0 auto",
+  minHeight: "calc(100vh - 120px)",
+
+  // ✅ 画面全体の背景
+  backgroundImage:
+    "linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0.55))," +
+    "url(/amusement/bg.webp)",
+  backgroundSize: "cover, cover",
+  backgroundPosition: "center, center",
+  backgroundRepeat: "no-repeat, no-repeat",
+  borderRadius: 24,
+
+  // 端の見切れが気になる場合の保険
+  overflow: "hidden",
+}
+}>
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 8px" }}>
           Amusement
