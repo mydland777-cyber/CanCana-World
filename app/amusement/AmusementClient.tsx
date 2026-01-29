@@ -18,11 +18,10 @@ const ITEMS: GameItem[] = [
   {
     id: "portal",
     title: "Game Portal",
-    desc: "Unityゲームの入口。別ドメインのゲーム世界へ飛びます。",
+    desc: "ゲームの入口。別ドメインのゲーム世界へ飛びます。",
     controls: "操作：ゲーム内で案内します。",
     thumb: "/amusement/thumbs/portal.webp",
-    href: "https://game.cancanaworld.com",
-    tag: "Unity",
+    comingSoon: true,
   },
   {
     id: "coming-1",
@@ -93,7 +92,7 @@ export default function AmusementClient() {
             Amusement
           </h1>
           <p style={{ opacity: 0.86, margin: 0, lineHeight: 1.65 }}>
-            ゲーム置き場。左にイメージ、右に説明と操作。気になるやつからどうぞ🎮✨
+            ゲーム置き場。みんなでランキングを競え！気になるやつからどうぞ🎮✨
           </p>
 
           <div
