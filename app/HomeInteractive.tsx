@@ -16,7 +16,7 @@ const TAP_STREAK_RESET_MS = 400;
 // ===== Message（共有＋24h＋禁止ワード）=====
 const MSG_MILESTONES = [100, 300, 500, 800] as const;
 
-const MSG_MAX_LEN = 30;
+const MSG_MAX_LEN = 80;
 const MSG_TTL_MS = 24 * 60 * 60 * 1000;
 const MSG_FETCH_MS = 15000;
 
@@ -1386,15 +1386,21 @@ const resumeTapStreak = () => {
               color: "rgba(255,255,255,0.92)",
             }}
           >
-            <div style={{ fontSize: 14, letterSpacing: "0.10em", opacity: 0.9 }}>
-              メッセージを書いてね♡（24時間共有）
+            <div style={{ fontSize: 14, letterSpacing: "0.10em", opacity: 0.9, lineHeight: 1.55 }}>
+              みんなのオープンファンレター募集！😉
+              <br />
+              “ツタエタイコト・オモイデ”のメッセージを書いてね💗
+              <br />
+              <span style={{ fontSize: 12, opacity: 0.85 }}>
+                ※みんなに見えるから、やさしさ多めで頼む〜💗✨
+              </span>
             </div>
 
             <div style={{ marginTop: 10 }}>
               <textarea
                 value={msgText}
                 onChange={(e) => setMsgText(e.target.value)}
-                placeholder="30文字まで"
+                placeholder="80文字まで"
                 rows={3}
                 style={{
                   width: "100%",
