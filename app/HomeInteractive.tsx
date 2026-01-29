@@ -1370,21 +1370,21 @@ const resumeTapStreak = () => {
             WebkitBackdropFilter: "blur(10px)",
             display: "grid",
             placeItems: "center",
-            padding: 18,
+            padding: 8,
           }}
         >
           <div
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(94vw, 640px)",
-              maxHeight: "82svh",
+              width: "min(98vw, 760px)",
+              maxHeight: "92svh",
               overflow: "auto",
               borderRadius: 18,
               background: "rgba(10,10,10,0.72)",
               border: "1px solid rgba(255,255,255,0.14)",
               boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-              padding: 16,
+              padding: 20,
               color: "rgba(255,255,255,0.92)",
             }}
           >
@@ -1403,7 +1403,7 @@ const resumeTapStreak = () => {
                 value={msgText}
                 onChange={(e) => setMsgText(e.target.value)}
                 placeholder="80文字まで"
-                rows={3}
+                rows={5}
                 style={{
                   width: "100%",
                   resize: "none",
