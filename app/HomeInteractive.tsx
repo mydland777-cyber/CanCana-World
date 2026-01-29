@@ -1377,7 +1377,9 @@ const resumeTapStreak = () => {
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(92vw, 520px)",
+              width: "min(94vw, 640px)",
+              maxHeight: "82svh",
+              overflow: "auto",
               borderRadius: 18,
               background: "rgba(10,10,10,0.72)",
               border: "1px solid rgba(255,255,255,0.14)",
