@@ -9,8 +9,13 @@ const TAP_GOAL = 1000;
 const SECRET_SHOW_MS = 12000;
 const SKULL_RATE = 0.7;
 
+// ===== 連続タップ判定 =====
+// HeartsLayer と同じ基準に合わせる（必要ならここだけ調整）
+const TAP_STREAK_RESET_MS = 400;
+
 // ===== Message（共有＋24h＋禁止ワード）=====
-const MESSAGE_GOAL = 100;
+const MSG_MILESTONES = [100, 300, 500, 800] as const;
+
 const MSG_MAX_LEN = 30;
 const MSG_TTL_MS = 24 * 60 * 60 * 1000;
 const MSG_FETCH_MS = 15000;
@@ -539,6 +544,40 @@ export default function HomeInteractive({
   const msgQueueRef = useRef<StoredMsg[]>([]);
   const msgQueueIdxRef = useRef(0);
 
+  // ===== 連続タップ（メッセージ/シークレット用）=====
+const tapStreakRef = useRef(0);
+const tapResetTimerRef = useRef<number | null>(null);
+const tapPausedRef = useRef(false);
+
+const clearTapResetTimer = () => {
+  if (tapResetTimerRef.current) window.clearTimeout(tapResetTimerRef.current);
+  tapResetTimerRef.current = null;
+};
+
+const scheduleTapReset = () => {
+  if (tapPausedRef.current) return;
+  clearTapResetTimer();
+  tapResetTimerRef.current = window.setTimeout(() => {
+    tapStreakRef.current = 0;
+    tapResetTimerRef.current = null;
+  }, TAP_STREAK_RESET_MS);
+};
+
+const pauseTapStreak = () => {
+  tapPausedRef.current = true;
+  clearTapResetTimer();
+};
+
+const resumeTapStreak = () => {
+  tapPausedRef.current = false;
+  // ※モーダルを閉じた直後に少し猶予が欲しければ ms を増やせます
+  clearTapResetTimer();
+  tapResetTimerRef.current = window.setTimeout(() => {
+    tapStreakRef.current = 0;
+    tapResetTimerRef.current = null;
+  }, TAP_STREAK_RESET_MS);
+};
+
   // ✅ 初期値を matchMedia で即決（スマホロゴが“パッ”になるのを防ぐ）
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -568,7 +607,6 @@ export default function HomeInteractive({
   const tapKey = `cancana_taps_${day0}`;
   const doneKey = `cancana_secret_done_${day0}`;
 
-  const msgTapKey = `cancana_msg_taps_${msgDay}`;
   const localMsgKey = `cancana_msgs_${msgDay}`;
 
   const bannedWords = useMemo(() => normalizeBannedWords(BANNED_WORDS), []);
@@ -802,6 +840,9 @@ export default function HomeInteractive({
 
       if (profileCloseTimerRef.current) window.clearTimeout(profileCloseTimerRef.current);
       profileCloseTimerRef.current = null;
+
+      if (tapResetTimerRef.current) window.clearTimeout(tapResetTimerRef.current);
+      tapResetTimerRef.current = null;
     };
   }, []);
 
@@ -891,20 +932,30 @@ export default function HomeInteractive({
   };
 
   const onTap = () => {
-    const n = Number(localStorage.getItem(tapKey) ?? "0") + 1;
-    localStorage.setItem(tapKey, String(n));
-    if (n >= TAP_GOAL) {
-      localStorage.setItem(tapKey, "0");
-      triggerSecret();
-    }
+  // 連続タップ数を進める（一定時間空いたらリセットされる）
+  tapStreakRef.current += 1;
+  const streak = tapStreakRef.current;
 
-    const m = Number(localStorage.getItem(msgTapKey) ?? "0") + 1;
-    localStorage.setItem(msgTapKey, String(m));
-    if (m >= MESSAGE_GOAL && m % MESSAGE_GOAL === 0) {
-      setMsgOpen(true);
-      setValidationError("");
-    }
-  };
+  // 次のタップが来なければリセット
+  scheduleTapReset();
+
+  // 1000連続でシークレット（1日1回は doneKey で既存のまま）
+  if (streak >= TAP_GOAL) {
+    tapStreakRef.current = 0;
+    clearTapResetTimer();
+    triggerSecret();
+    return;
+  }
+
+  // 100/300/500/800 連続でメッセージ
+  if ((MSG_MILESTONES as readonly number[]).includes(streak)) {
+    setMsgOpen(true);
+    setValidationError("");
+
+    // メッセージ入力中は「連続」を維持（モーダルで途切れないように一旦停止）
+    pauseTapStreak();
+  }
+};
 
   useEffect(() => {
     const t = msgText.trim();
@@ -955,6 +1006,7 @@ export default function HomeInteractive({
       setMsgText("");
       setMsgOpen(false);
       setValidationError("");
+      resumeTapStreak();
     } catch {
       setValidationError("送信に失敗しました。時間をおいて再度お試しください。");
     }
@@ -1368,7 +1420,8 @@ export default function HomeInteractive({
                   setMsgOpen(false);
                   setMsgText("");
                   setValidationError("");
-                }}
+                  resumeTapStreak();
+                }} 
                 style={{
                   padding: "10px 12px",
                   borderRadius: 12,
