@@ -92,7 +92,7 @@ export default function AmusementClient() {
             Amusement
           </h1>
           <p style={{ opacity: 0.86, margin: 0, lineHeight: 1.65 }}>
-            ゲーム置き場。みんなでランキングを競え！気になるやつからどうぞ🎮✨
+            ゲーム置き場。みんなでランキングを競え！まもなくリリース🎮✨
           </p>
 
           <div
