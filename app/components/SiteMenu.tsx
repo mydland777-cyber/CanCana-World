@@ -22,7 +22,7 @@ export default function SiteMenu() {
       { kind: "link", href: "/discography", label: "Discography" },
       { kind: "link", href: "/support", label: "♡ Support" },
       { kind: "external", href: "https://cancanaworld.official.ec", label: "Store" },
-      { kind: "disabled", label: "Amusement", note: "Coming soon" },
+      { kind: "link", href: "/amusement", label: "Amusement" },
       { kind: "link", href: "/contact", label: "Contact" },
     ],
     []
