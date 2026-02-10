@@ -558,9 +558,22 @@ const scheduleTapReset = () => {
   if (tapPausedRef.current) return;
   clearTapResetTimer();
   tapResetTimerRef.current = window.setTimeout(() => {
-    tapStreakRef.current = 0;
-    tapResetTimerRef.current = null;
-  }, TAP_STREAK_RESET_MS);
+  tapStreakRef.current = 0;
+
+  // ✅ ルーティンの連続(seg)も途切れさせる
+  try {
+    const raw = localStorage.getItem(routineStateKey);
+    if (raw) {
+      const st = JSON.parse(raw);
+      if (st && typeof st === "object" && st.done !== true) {
+        st.seg = 0;
+        localStorage.setItem(routineStateKey, JSON.stringify(st));
+      }
+    }
+  } catch {}
+
+  tapResetTimerRef.current = null;
+}, TAP_STREAK_RESET_MS);
 };
 
 const pauseTapStreak = () => {
@@ -603,9 +616,15 @@ const resumeTapStreak = () => {
   const logoPctIn = Math.round((logoIn / logoTotal) * 100);
   const logoPctHold = Math.round(((logoIn + logoHold) / logoTotal) * 100);
 
-  const day0 = useMemo(() => todayKeyMidnight(), []);
-  const tapKey = `cancana_taps_${day0}`;
-  const doneKey = `cancana_secret_done_${day0}`;
+    // ✅ 日付キーは「6時更新」で統一（msgDayと同じ感覚）
+  const dayKey = useMemo(() => dayKey6am(), []);
+
+  // ===== Secret（累積1000 + 1日3回まで）=====
+  const TAP_TOTAL_KEY = "cancana_taps_total"; // 永続累積
+  const secretCountKey = `cancana_secret_count_${dayKey}`; // その日(6時更新)の発動回数
+
+  // ===== Comment Routine（段階式連続 / 1日1回）=====
+  const routineStateKey = `cancana_msg_routine_state_${dayKey}`; // 進行状況を日単位で保存
 
   const localMsgKey = `cancana_msgs_${msgDay}`;
 
@@ -910,15 +929,18 @@ const resumeTapStreak = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const triggerSecret = async () => {
-    if (localStorage.getItem(doneKey) === "1") return;
+    const triggerSecret = async () => {
+    // ✅ 1日3回まで
+    const n = Number(localStorage.getItem(secretCountKey) ?? "0");
+    if (n >= 3) return;
 
     const isSkull = Math.random() < SKULL_RATE;
     const picked = isSkull
       ? pickOne(skullImages) ?? "/secret/skull_01.jpg"
       : pickOne(luckyImages) ?? "/secret/lucky_01.jpg";
 
-    localStorage.setItem(doneKey, "1");
+    localStorage.setItem(secretCountKey, String(n + 1));
+
     playSE(isSkull ? "/se/skull.mp3" : "/se/lucky.mp3", isSkull ? 0.85 : 0.95);
 
     setSecretSrc(picked);
@@ -931,31 +953,83 @@ const resumeTapStreak = () => {
     }, SECRET_SHOW_MS);
   };
 
-  const onTap = () => {
-  // 連続タップ数を進める（一定時間空いたらリセットされる）
-  tapStreakRef.current += 1;
-  const streak = tapStreakRef.current;
+    const onTap = () => {
+    // =========================================
+    // A) Secret：累積1000（永続） + 1日3回まで
+    // =========================================
+    const prevTotal = Number(localStorage.getItem(TAP_TOTAL_KEY) ?? "0");
+    const nextTotal = prevTotal + 1;
+    localStorage.setItem(TAP_TOTAL_KEY, String(nextTotal));
 
-  // 次のタップが来なければリセット
-  scheduleTapReset();
+    // 1000の「境界を跨いだ」時だけ発動（1000,2000,3000...）
+    const prevK = Math.floor(prevTotal / TAP_GOAL);
+    const nextK = Math.floor(nextTotal / TAP_GOAL);
+    if (nextK > prevK) {
+      triggerSecret(); // 1日3回制限は triggerSecret 内でかかる
+    }
 
-  // 1000連続でシークレット（1日1回は doneKey で既存のまま）
-  if (streak >= TAP_GOAL) {
-    tapStreakRef.current = 0;
-    clearTapResetTimer();
-    triggerSecret();
-    return;
-  }
+    // =========================================
+    // B) Comment Routine：段階式連続（1日1回）
+    // =========================================
 
-  // 100/300/500/800 連続でメッセージ
-  if ((MSG_MILESTONES as readonly number[]).includes(streak)) {
-    setMsgOpen(true);
-    setValidationError("");
+    // ルーティン状態を読む（無ければ初期）
+    let state:
+      | { stage: number; base: number; seg: number; done: boolean }
+      | null = null;
 
-    // メッセージ入力中は「連続」を維持（モーダルで途切れないように一旦停止）
-    pauseTapStreak();
-  }
-};
+    try {
+      const raw = localStorage.getItem(routineStateKey);
+      if (raw) state = JSON.parse(raw);
+    } catch {}
+
+    if (!state || typeof state !== "object") {
+      state = { stage: 0, base: 0, seg: 0, done: false };
+    }
+
+    // その日すでにルーティン完了なら、コメント系はもう進めない
+    if (state.done) return;
+
+    // 連続タップ（一定時間空いたらリセット）
+    state.seg += 1;
+
+    // 次のタップが来なければリセット（既存の仕組みを利用）
+    scheduleTapReset();
+
+    // どの段階まで必要か（100→300→500→800）
+    const milestones = MSG_MILESTONES as readonly number[]; // [100,300,500,800]
+    const target = milestones[state.stage] ?? 0;
+
+    // 段階式：今の段階の「必要追加回数」
+    const need = Math.max(0, target - state.base);
+
+    // 達成判定
+    if (need > 0 && state.seg >= need) {
+      // 到達：メッセージモーダルを開く
+      setMsgOpen(true);
+      setValidationError("");
+
+      // モーダル中は途切れさせない
+      pauseTapStreak();
+
+      // 次段階へ
+      state.base = target;
+      state.seg = 0;
+      state.stage += 1;
+
+      // 800まで行ったら、その日ルーティン完了 → 0へ戻す
+      if (state.stage >= milestones.length) {
+        state.stage = 0;
+        state.base = 0;
+        state.seg = 0;
+        state.done = true; // 1日1回
+      }
+    }
+
+    // 保存
+    try {
+      localStorage.setItem(routineStateKey, JSON.stringify(state));
+    } catch {}
+  };
 
   useEffect(() => {
     const t = msgText.trim();
