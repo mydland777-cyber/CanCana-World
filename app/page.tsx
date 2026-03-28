@@ -7,7 +7,7 @@ import HomeInteractive from "./HomeInteractive";
 export const metadata: Metadata = {
   title: "CanCana World",
   description:
-    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。アーティスト／役者としての活動に加え、TikTok LIVEでもライバーとして配信中。最新情報、作品、サポート、コンタクトはこちら。",
+    "CanCana公式サイト。音楽・詩・ビジュアル・ゲームが交差する世界。アーティスト／役者としての活動に加え、TikTok LIVEでもライバーとして配信中。CanCana Parkでは、イラストプレゼント、月のアイコンダウンロード、お話できるわいわいルーム、TikTokで使うRingイラストと好きな画像を合成できるリングメーカーも楽しめます。最新情報、作品、サポート、コンタクトはこちら。",
   keywords: [
     "CanCana",
     "星空奏",
@@ -24,12 +24,19 @@ export const metadata: Metadata = {
     "ビジュアル",
     "ゲーム",
     "CanCana World",
+    "CanCana Park",
+    "イラストプレゼント",
+    "月のアイコンダウンロード",
+    "わいわいルーム",
+    "リングメーカー",
+    "Ringイラスト",
+    "画像合成",
   ],
   alternates: { canonical: "/" },
   openGraph: {
     title: "CanCana World",
     description:
-      "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。アーティスト／役者として活動しつつ、TikTok LIVEでもライバーとして配信中。",
+      "音楽・詩・ビジュアル・ゲームが交差するCanCanaの世界。CanCana Parkでは、イラストプレゼント、月のアイコンダウンロード、わいわいルーム、リングメーカーも楽しめます。",
     url: "/",
     siteName: "CanCana World",
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "CanCana World" }],

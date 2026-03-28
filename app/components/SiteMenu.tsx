@@ -22,6 +22,7 @@ export default function SiteMenu() {
       { kind: "link", href: "/discography", label: "Discography" },
       { kind: "link", href: "/support", label: "♡ Support" },
       { kind: "external", href: "https://cancanaworld.official.ec", label: "Store" },
+      { kind: "external", href: "https://cancanapark.vercel.app/", label: "CanCana Park" },
       { kind: "link", href: "/amusement", label: "Amusement" },
       { kind: "link", href: "/contact", label: "Contact" },
     ],
